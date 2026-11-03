@@ -19,6 +19,18 @@ export default function RootLayout() {
         <Stack.Screen name="login" />
         <Stack.Screen name="child" />
         <Stack.Screen name="parent" />
+        {/* Child screens */}
+        <Stack.Screen name="child-safe-signal" />
+        <Stack.Screen name="child-request-access" />
+        <Stack.Screen name="child-removal-request" />
+        <Stack.Screen name="child-protection-status" />
+        {/* Parent screens */}
+        <Stack.Screen name="parent-safe-signal-review" />
+        <Stack.Screen name="parent-access-requests" />
+        <Stack.Screen name="parent-removal-requests" />
+        <Stack.Screen name="parent-manage-child" />
+        <Stack.Screen name="parent-content-restrictions" />
+        <Stack.Screen name="parent-device-security" />
       </Stack>
     </AuthProvider>
   );
