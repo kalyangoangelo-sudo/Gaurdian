@@ -3,6 +3,9 @@
  *
  * Authentication state using Firebase Auth + Firestore profiles.
  * Replaces the previous JWT/REST login.
+ *
+ * After every successful login, persists 'auth_token', 'user_role', and 'user_id'
+ * to AsyncStorage so the entry screen can redirect without waiting for Firebase.
  */
 
 import React, {
@@ -14,6 +17,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { auth } from '../services/firebase';
 import { firebaseLogin, firebaseLogout, getCurrentUserProfile } from '../services/firebaseAuth';
@@ -87,6 +91,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [user?.id]);
 
+  /** Persist session data so index.tsx can redirect without waiting for Firebase. */
+  const persistSession = useCallback(async (sessionToken: string, sessionUser: User) => {
+    await AsyncStorage.setItem('auth_token', sessionToken);
+    await AsyncStorage.setItem('user_role', sessionUser.role);
+    await AsyncStorage.setItem('user_id', sessionUser.id);
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     setLoginError(null);
@@ -101,10 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setUser(demo.user);
         setToken(demo.token);
+        await persistSession(demo.token, demo.user);
         if (demo.user.role === 'parent') {
-          router.replace('/parent');
+          router.replace('/(parent)/dashboard');
         } else {
-          router.replace('/child');
+          router.replace('/(child)/home');
         }
         return;
       }
@@ -113,25 +125,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await firebaseLogin(trimmedEmail, password);
       setUser(result.user);
       setToken(result.token);
+      await persistSession(result.token, result.user);
       registerForPushNotifications(result.user.id).catch(() => {});
       if (result.user.role === 'parent') {
-        router.replace('/parent');
+        router.replace('/(parent)/dashboard');
       } else {
-        router.replace('/child');
+        router.replace('/(child)/home');
       }
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : 'Login failed.');
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [router, persistSession]);
 
   const logout = useCallback(async () => {
     await firebaseLogout();
+    await AsyncStorage.removeItem('auth_token');
+    await AsyncStorage.removeItem('user_role');
+    await AsyncStorage.removeItem('user_id');
     setUser(null);
     setToken(null);
     setLoginError(null);
-    router.replace('/login');
+    router.replace('/');
   }, [router]);
 
   // Don't render children until Firebase restores session
