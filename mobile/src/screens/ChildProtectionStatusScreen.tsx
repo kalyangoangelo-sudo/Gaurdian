@@ -2,16 +2,16 @@
  * ChildProtectionStatusScreen.tsx
  *
  * Child — view current protection status: policy from API,
- * heartbeat status from AsyncStorage.
+ * heartbeat status from heartbeatService (refreshed every 30 s).
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, RefreshControl,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { apiGet } from '../config/api';
+import { getHeartbeatStatus } from '../services/heartbeatService';
 import { Card } from '../components/Card';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
@@ -20,7 +20,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Colors, FontSize, Spacing, Radius } from '../styles/theme';
 
 const NAVY = '#1B2A4A';
-const TEAL = '#00B4D8';
+const REFRESH_INTERVAL_MS = 30_000;
 
 // Placeholder child ID — in production this would come from AuthContext or AsyncStorage
 const PLACEHOLDER_CHILD_ID = 'demo-child';
@@ -35,39 +35,50 @@ interface PolicyData {
 export default function ChildProtectionStatusScreen() {
   const router = useRouter();
   const [policy, setPolicy] = useState<PolicyData | null>(null);
-  const [heartbeat, setHeartbeat] = useState<string | null>(null);
+  const [heartbeatStatus, setHeartbeatStatus] = useState<string | null>(null);
+  const [heartbeatLastSent, setHeartbeatLastSent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const loadHeartbeat = useCallback(async () => {
+    const hb = await getHeartbeatStatus();
+    setHeartbeatStatus(hb.status);
+    setHeartbeatLastSent(hb.lastSent);
+  }, []);
+
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [policyData, heartbeatValue] = await Promise.all([
+      const [policyData] = await Promise.all([
         apiGet(`/policy/${PLACEHOLDER_CHILD_ID}`).catch(() => null),
-        AsyncStorage.getItem('heartbeat_status'),
+        loadHeartbeat(),
       ]);
       setPolicy(policyData);
-      setHeartbeat(heartbeatValue);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load status.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [loadHeartbeat]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Refresh heartbeat status every 30 seconds
+  useEffect(() => {
+    const id = setInterval(loadHeartbeat, REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [loadHeartbeat]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     load();
   }, [load]);
 
-  const heartbeatColor =
-    heartbeat === 'ACTIVE' ? Colors.approved :
-    heartbeat === 'OFFLINE' ? Colors.denied :
-    Colors.pending;
+  const isActive = heartbeatStatus === 'ACTIVE';
+  const heartbeatColor = isActive ? Colors.approved : Colors.pending;
+  const heartbeatLabel = isActive ? 'Active' : 'Unknown';
 
   if (loading) {
     return (
@@ -98,20 +109,17 @@ export default function ChildProtectionStatusScreen() {
           <Text style={styles.cardTitle}>Device Connection</Text>
           <View style={styles.heartbeatRow}>
             <View style={[styles.dot, { backgroundColor: heartbeatColor }]} />
-            <Text style={[styles.heartbeatText, { color: heartbeatColor }]}>
-              {heartbeat ?? 'Unknown'}
-            </Text>
+            <StatusBadge label={heartbeatLabel} color={heartbeatColor} />
           </View>
-          {heartbeat === 'ACTIVE' && (
-            <Text style={styles.statusHint}>Your device is connected and protection is active.</Text>
-          )}
-          {heartbeat === 'OFFLINE' && (
-            <Text style={[styles.statusHint, { color: Colors.denied }]}>
-              Device appears offline. Contact your guardian if this persists.
+          {heartbeatLastSent ? (
+            <Text style={styles.statusHint}>
+              Last reported: {new Date(heartbeatLastSent).toLocaleString()}
             </Text>
-          )}
-          {!heartbeat && (
+          ) : (
             <Text style={styles.statusHint}>Status not yet reported. Check back later.</Text>
+          )}
+          {isActive && (
+            <Text style={styles.statusHint}>Your device is connected and protection is active.</Text>
           )}
         </Card>
 
@@ -223,10 +231,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     marginRight: Spacing.sm,
-  },
-  heartbeatText: {
-    fontSize: FontSize.lg,
-    fontWeight: '700',
   },
   statusHint: {
     fontSize: FontSize.sm,

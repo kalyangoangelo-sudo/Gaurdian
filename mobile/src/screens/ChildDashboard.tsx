@@ -10,12 +10,18 @@ import {
   View, Text, TextInput, FlatList, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { usersRef } from '../services/firebase';
 import {
   createRequest,
   subscribeChildRequests,
 } from '../services/firebaseRequests';
+import {
+  getOrCreateDeviceId,
+  startHeartbeat,
+  stopHeartbeat,
+} from '../services/heartbeatService';
 import { AppHeader } from '../components/AppHeader';
 import { RequestCard } from '../components/RequestCard';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -51,6 +57,22 @@ export default function ChildDashboard() {
     );
     return unsub;
   }, [user?.id]);
+
+  // Start heartbeat while child dashboard is mounted
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const deviceId = await getOrCreateDeviceId();
+      const token = await AsyncStorage.getItem('auth_token');
+      if (active && token) {
+        startHeartbeat(deviceId, '1.0', token);
+      }
+    })();
+    return () => {
+      active = false;
+      stopHeartbeat();
+    };
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = urlInput.trim();

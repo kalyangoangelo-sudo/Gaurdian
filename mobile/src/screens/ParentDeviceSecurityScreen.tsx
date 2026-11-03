@@ -4,6 +4,7 @@
  * Parent — view device security status.
  * Loads from GET /device-status/:childId.
  * Shows VERIFIED / OFFLINE / UNVERIFIED badges.
+ * Auto-refreshes every 30 seconds.
  *
  * ⚠️ DISCLAIMER: OS-level enforcement (screen lock, VPN enforcement,
  * MDM restrictions) is not implemented. Status reflects heartbeat signals only.
@@ -22,9 +23,8 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { Colors, FontSize, Spacing, Radius } from '../styles/theme';
 
-const NAVY = '#1B2A4A';
-const TEAL = '#00B4D8';
 const PLACEHOLDER_CHILD_ID = 'demo-child';
+const AUTO_REFRESH_MS = 30_000;
 
 type ConnectionStatus = 'VERIFIED' | 'OFFLINE' | 'UNVERIFIED';
 
@@ -74,6 +74,12 @@ export default function ParentDeviceSecurityScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-refresh every 30 seconds while screen is mounted
+  useEffect(() => {
+    const id = setInterval(load, AUTO_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
