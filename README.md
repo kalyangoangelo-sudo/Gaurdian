@@ -1,238 +1,256 @@
 # GuardianLink Lite
 
-A parental website-access request app built for a hackathon.
+**An Intelligent Child Online Safety, Reporting, Response and Referral Platform**
 
-A child requests permission to visit a website. Their linked parent is notified in real time and can approve or deny the request. The child's screen updates automatically with the decision.
-
-> ⚠️ **Scope**: GuardianLink Lite records and communicates access decisions. It does **not** block websites in Chrome, Safari, or any other browser. Device-wide enforcement is out of scope for this MVP.
+GuardianLink Lite is a two-in-one mobile application — one codebase, two distinct experiences — for parents/guardians and the children they protect. It combines a real content filtering engine, a rule-based safety classifier, live parent-child communication over Socket.IO, and a child-initiated safety reporting system (SafeSignal) in a single demonstrable prototype.
 
 ---
 
-## Quick start
+## Architecture
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) 18 or later
-- [npm](https://www.npmjs.com/) 9 or later
-- [Expo Go](https://expo.dev/client) app installed on your phone (iOS or Android)
-- Both your computer and phone on the **same Wi-Fi network**
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   React Native (Expo SDK 57)                  │
+│                        expo-router                            │
+│                                                              │
+│   ┌─────────────────────┐   ┌──────────────────────────┐    │
+│   │     PARENT MODE      │   │       CHILD MODE          │    │
+│   │  Dashboard           │   │  Home / Status            │    │
+│   │  Manage Children     │   │  Request Access           │    │
+│   │  Content Restrictions│   │  SafeSignal Report        │    │
+│   │  Access Requests     │   │  Protection Status        │    │
+│   │  SafeSignal Review   │   │  Removal Request          │    │
+│   │  Device Security     │   │                           │    │
+│   └──────────┬──────────┘   └────────────┬──────────────┘    │
+│              │                            │                    │
+│   ┌──────────▼────────────────────────────▼──────────────┐   │
+│   │              Shared Services Layer (TypeScript)        │   │
+│   │  filterEngine.ts  │  safetyClassifier.ts              │   │
+│   │  safeSignalTriage.ts  │  heartbeatService.ts          │   │
+│   │  AuthContext  │  useSocket  │  api.ts                 │   │
+│   └──────────────────────────────┬────────────────────────┘   │
+└─────────────────────────────────┼────────────────────────────┘
+                                  │ HTTP + Socket.IO (LAN/local)
+┌─────────────────────────────────▼────────────────────────────┐
+│                  Express + Socket.IO (Node 18+)               │
+│                      Port 3001                                │
+│                                                              │
+│  POST /login          POST /pair/generate                    │
+│  GET  /requests       POST /pair/confirm                     │
+│  POST /requests       GET|PUT /policy/:childId               │
+│  POST /requests/:id/decision                                 │
+│  POST /safesignal     GET /safesignal/:parentId              │
+│  PUT  /safesignal/:id/acknowledge                            │
+│  POST /heartbeat      POST /removal                          │
+│                                                              │
+│  In-memory store (Map) — no external database required       │
+└──────────────────────────────────────┬───────────────────────┘
+                                       │
+┌──────────────────────────────────────▼───────────────────────┐
+│                     Firebase (guardian-link-6de8a)            │
+│  Auth (Email/Password)  │  Firestore  │  FCM Messaging        │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Step 1 – Start the backend server
+## Tech Stack
+
+| Layer | Technology | Version |
+|---|---|---|
+| Mobile framework | Expo / React Native | SDK 57 / RN 0.86.3 |
+| Language | TypeScript | ~5.8.3 |
+| Navigation | expo-router (file-based) | ~57.0.27 |
+| Auth | JWT (`jsonwebtoken`) | 9.0.2 |
+| Password hashing | bcryptjs | 2.4.3 |
+| Real-time | Socket.IO client + server | 4.7.5 |
+| Backend | Express | 4.18.3 |
+| Firebase | `@react-native-firebase/*` | ^21.14.0 |
+| Push notifications | FCM + expo-notifications | ^21.14.0 / ~57.0.23 |
+| Local storage | AsyncStorage | 3.1.1 |
+| Tests | Jest + Supertest | 29.7.0 / 7.0.0 |
+
+---
+
+## Prerequisites
+
+- **Node.js** 18 or later
+- **npm** 9 or later
+- **Expo CLI** — `npm install -g expo-cli` (or use `npx expo`)
+- **Android Studio** with a physical device or emulator (API 31+) for native builds
+- An **EAS account** (free tier) for APK builds: `npm install -g eas-cli`
+- The `google-services.json` file placed at `mobile/google-services.json` (see [Firebase Setup](FIREBASE_SETUP.md))
+
+---
+
+## Setup
+
+### 1. Clone the repository
 
 ```bash
-cd GuardianLinkLite/server
+git clone <repo-url>
+cd guardian/GuardianLinkLite
+```
+
+### 2. Start the backend server
+
+```bash
+cd server
+cp .env.example .env          # edit JWT_SECRET and PORT if needed
 npm install
-npm start
+npm start                     # runs on http://0.0.0.0:3001
 ```
 
-You should see:
+### 3. Configure the mobile app
 
-```
-[GuardianLink Lite] Server running on port 3001
-  Health:  http://localhost:3001/health
-  Login:   POST http://localhost:3001/login
-  ⚠️  Development mode – demo accounts active:
-     Parent:  username=parent  password=Parent123!
-     Child:   username=child   password=Child123!
+Edit `mobile/src/config.ts` and set `SERVER_URL` to the LAN IP of your development machine:
+
+```ts
+// mobile/src/config.ts
+export const SERVER_URL = 'http://192.168.x.x:3001';   // your machine's LAN IP
 ```
 
-**Verify the server is running:**
+### 4. Install mobile dependencies and start
 
 ```bash
-curl http://localhost:3001/health
-# → {"status":"ok","timestamp":"..."}
-```
-
----
-
-## Step 2 – Find your computer's local IP address
-
-The phone needs your computer's **LAN IP**, not `localhost`.
-
-**Windows:**
-```
-ipconfig
-```
-Look for "IPv4 Address" under your Wi-Fi adapter, e.g. `192.168.1.42`.
-
-**macOS:**
-```
-ifconfig en0 | grep "inet "
-```
-
-**Linux:**
-```
-ip addr show
-```
-
----
-
-## Step 3 – Configure the mobile app
-
-Open this file in your editor:
-
-```
-GuardianLinkLite/mobile/src/config.ts
-```
-
-Change the `SERVER_URL` to your computer's IP:
-
-```typescript
-export const SERVER_URL = 'http://192.168.1.42:3001';
-//                                   ↑ your actual IP
-```
-
-> **Android Emulator only:** use `http://10.0.2.2:3001`
-> **iOS Simulator only:** use `http://localhost:3001`
-
----
-
-## Step 4 – Start the mobile app
-
-```bash
-cd GuardianLinkLite/mobile
+cd mobile
 npm install
-npm start
+npx expo start
 ```
 
-Expo will print a QR code. Scan it with:
-- **iOS**: the Camera app
-- **Android**: the Expo Go app
+Scan the QR code with **Expo Go** (Android) or press `a` to launch on an Android emulator.
+
+### 5. Firebase configuration
+
+Follow [FIREBASE_SETUP.md](FIREBASE_SETUP.md) to:
+
+1. Create / reuse the `guardian-link-6de8a` Firebase project.
+2. Enable **Email/Password** authentication.
+3. Download `google-services.json` and place it at `mobile/google-services.json`.
+4. (Optional) Set up Firestore rules and FCM.
+
+The app functions without Firebase for the core demo (JWT path). Firebase is required only for FCM push notifications and Firestore persistence.
 
 ---
 
-## Demo walkthrough
+## Demo Accounts
 
-### Login as the child
+| Role | Email | Password |
+|---|---|---|
+| Parent | kalyangoangelo@gmail.com | Parent123! |
+| Child | kalyango.200@gmail.com | Child123! |
 
-1. Open the app on your phone (or a second device / simulator).
-2. Log in with: **child / Child123!**
-3. You land on the Child Dashboard.
-
-### Login as the parent
-
-1. Open the app on a second device or browser tab.
-2. Log in with: **parent / Parent123!**
-3. You land on the Parent Dashboard.
-
-### Test the full flow
-
-1. On the child device, type `https://youtube.com` in the URL box.
-2. Tap **Request Access**.
-3. Watch the Parent Dashboard – the request appears instantly (no refresh needed).
-4. Tap **Approve** or **Deny** on the parent device.
-5. Watch the Child Dashboard – the status updates instantly.
+The same credentials work for both the Firebase Auth path and the Express in-memory store (username = email prefix: `parent` / `child`).
 
 ---
 
-## Running backend tests
+## Build APK
+
+The development APK is built with EAS Build:
 
 ```bash
-cd GuardianLinkLite/server
+cd mobile
+npx eas login                 # log in to your Expo account
+npx eas build --platform android --profile development
+```
+
+This produces a `.apk` downloadable from the EAS dashboard. A local build (without EAS) requires Android Studio:
+
+```bash
+cd mobile
+npx expo prebuild --clean
+cd android
+./gradlew assembleDebug
+# APK at: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+> **Note:** The EAS build requires `eas.json` in the `mobile/` directory with an `android.buildType: "apk"` development profile.
+
+---
+
+## Run Tests
+
+### Backend (Jest + Supertest)
+
+```bash
+cd server
 npm test
 ```
 
-Tests cover:
-- Login (success and failure)
-- Unauthorized access to protected endpoints
-- Valid and invalid URL submission
-- Parent approve / deny
-- Child cannot decide
-- Unlinked parent cannot decide
-- Duplicate decision returns 409
+Covers: login, JWT validation, role guards, request submission, parent decisions, duplicate-decision 409, rate limiting, pairing, policy, SafeSignal submit/retrieve/acknowledge, heartbeat, and removal.
+
+### Mobile TypeScript check
+
+```bash
+cd mobile
+npm run ts-check
+```
 
 ---
 
-## Project structure
+## Feature Status
+
+See [FEATURE_STATUS.md](FEATURE_STATUS.md) for a full breakdown of all 33 features labelled as:
+
+- ✅ WORKING AND TESTED
+- 🟡 WORKING IN CONTROLLED DEMONSTRATION
+- 🔵 SIMULATED
+- 🟠 PARTIALLY IMPLEMENTED
+- ❌ NOT IMPLEMENTED
+
+---
+
+## Project Structure
 
 ```
 GuardianLinkLite/
+├── FIREBASE_SETUP.md
+├── FEATURE_STATUS.md
+├── DEMO_SCRIPT.md
+├── README.md
 ├── server/
 │   ├── src/
-│   │   ├── server.js           Main entry point
-│   │   ├── store.js            In-memory data + seeded accounts
-│   │   ├── middleware/
-│   │   │   └── auth.js         JWT verification middleware
+│   │   ├── server.js            Express + Socket.IO entry point
+│   │   ├── store.js             In-memory Maps
+│   │   ├── firebase-admin.js    Firebase Admin SDK (optional)
+│   │   ├── middleware/auth.js   JWT requireAuth / requireRole
 │   │   ├── routes/
-│   │   │   ├── auth.js         POST /login
-│   │   │   └── requests.js     GET/POST /requests, POST /requests/:id/decision
-│   │   └── utils/
-│   │       └── validate.js     URL + decision validation
-│   ├── tests/
-│   │   └── api.test.js         Automated backend tests
-│   ├── .env                    Local secrets (git-ignored)
-│   ├── .env.example            Template for environment variables
-│   └── package.json
-│
-├── mobile/
-│   ├── app/
-│   │   ├── _layout.tsx         Root layout (AuthProvider)
-│   │   ├── index.tsx           Redirects to /login
-│   │   ├── login.tsx           Login route
-│   │   ├── child.tsx           Child dashboard route (guarded)
-│   │   └── parent.tsx          Parent dashboard route (guarded)
-│   ├── src/
-│   │   ├── config.ts           ← SET YOUR SERVER URL HERE
-│   │   ├── context/
-│   │   │   └── AuthContext.tsx Auth state + actions
-│   │   ├── hooks/
-│   │   │   ├── useSocket.ts    Socket.IO connection lifecycle
-│   │   │   └── useRequests.ts  Request list with live updates
-│   │   ├── screens/
-│   │   │   ├── LoginScreen.tsx
-│   │   │   ├── ChildDashboard.tsx
-│   │   │   └── ParentDashboard.tsx
-│   │   ├── services/
-│   │   │   ├── api.ts          HTTP API client
-│   │   │   └── socket.ts       Socket.IO client singleton
-│   │   ├── components/
-│   │   │   ├── AppHeader.tsx
-│   │   │   ├── ConnectionBadge.tsx
-│   │   │   ├── PrimaryButton.tsx
-│   │   │   ├── RequestCard.tsx
-│   │   │   └── StatusBadge.tsx
-│   │   ├── styles/
-│   │   │   └── theme.ts        Design tokens
-│   │   └── types/
-│   │       └── index.ts        Shared TypeScript types
-│   └── package.json
-│
-└── README.md                   ← You are here
+│   │   │   ├── auth.js
+│   │   │   ├── requests.js
+│   │   │   ├── pairing.js
+│   │   │   ├── policy.js
+│   │   │   ├── safesignal.js
+│   │   │   ├── heartbeat.js
+│   │   │   ├── removal.js
+│   │   │   └── events.js
+│   │   └── utils/validate.js
+│   └── tests/api.test.js
+└── mobile/
+    ├── app/
+    │   ├── (parent)/            Parent tab group
+    │   │   ├── dashboard.tsx
+    │   │   ├── children.tsx
+    │   │   ├── requests.tsx
+    │   │   ├── reports.tsx
+    │   │   └── security.tsx
+    │   ├── (child)/             Child tab group
+    │   │   ├── home.tsx
+    │   │   ├── protection.tsx
+    │   │   ├── requests.tsx
+    │   │   └── report.tsx
+    │   ├── login.tsx
+    │   └── index.tsx
+    └── src/
+        ├── screens/             Screen components
+        ├── services/            filterEngine, safetyClassifier,
+        │                        safeSignalTriage, heartbeatService,
+        │                        firebase*, notifications
+        ├── context/AuthContext.tsx
+        ├── components/
+        ├── styles/theme.ts
+        └── types/index.ts
 ```
 
 ---
 
-## Known limitations
-
-- **No persistence**: restarting the server clears all requests and resets accounts.
-- **Single parent-child pair**: only the seeded `parent` + `child` accounts are linked.
-- **No device-wide blocking**: the app records decisions but cannot enforce them in a browser.
-- **No push notifications**: the app must be open and foreground to receive live updates.
-- **HTTP only in development**: production requires HTTPS.
-- **No public registration**: accounts are seeded at startup.
-
----
-
-## Future improvements (out of MVP scope)
-
-- Persistent database (PostgreSQL, SQLite)
-- Dynamic parent-child pairing via invitation codes
-- Push notifications (Expo Notifications + APNs / FCM)
-- Per-category URL analysis (safe browsing API)
-- Time-limited approvals ("allowed for 30 minutes")
-- Multiple children per parent
-- Parent notification preferences (email, SMS)
-- Production HTTPS deployment guide
-
----
-
-## Security notes
-
-- Passwords are hashed with bcrypt (never stored as plaintext).
-- JWTs expire after 24 hours.
-- The JWT secret comes from an environment variable – never hardcoded.
-- All authorization decisions are made server-side; the client cannot forge a parent identity.
-- Rate limiting is applied to login (20 req / 15 min) and the API (100 req / min).
-- For production: use HTTPS, a proper secret manager, and review the CORS policy.
+*GuardianLink Lite — Stage H documentation.*
