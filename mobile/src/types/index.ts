@@ -13,6 +13,8 @@ export interface User {
   id: string;
   username: string;
   role: UserRole;
+  email?: string;
+  fcmToken?: string | null;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
