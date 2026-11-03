@@ -37,9 +37,25 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 
-const { seedUsers, RELATIONSHIPS, createRequestsStore } = require('./store');
+const {
+  seedUsers,
+  RELATIONSHIPS,
+  createRequestsStore,
+  createPairingStore,
+  createPoliciesStore,
+  createEventsStore,
+  createSafeSignalStore,
+  createRemovalStore,
+  createHeartbeatStore,
+} = require('./store');
 const { createAuthRouter } = require('./routes/auth');
 const { createRequestsRouter } = require('./routes/requests');
+const { createPairingRouter } = require('./routes/pairing');
+const { createPolicyRouter } = require('./routes/policy');
+const { createEventsRouter } = require('./routes/events');
+const { createSafeSignalRouter } = require('./routes/safesignal');
+const { createRemovalRouter } = require('./routes/removal');
+const { createHeartbeatRouter } = require('./routes/heartbeat');
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const isDev = process.env.NODE_ENV !== 'production';
@@ -124,6 +140,12 @@ io.on('connection', (socket) => {
 // They are populated asynchronously in startServer().
 let USERS = new Map();
 const REQUESTS = createRequestsStore();
+const PAIRING = createPairingStore();
+const POLICIES = createPoliciesStore();
+const EVENTS = createEventsStore();
+const SAFE_SIGNALS = createSafeSignalStore();
+const REMOVALS = createRemovalStore();
+const HEARTBEATS = createHeartbeatStore();
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -142,8 +164,23 @@ function mountRoutes() {
   authRouter = createAuthRouter(USERS);
   requestsRouter = createRequestsRouter(REQUESTS, RELATIONSHIPS, io);
 
+  const pairingRouter = createPairingRouter(PAIRING, RELATIONSHIPS);
+  const policyRouter = createPolicyRouter(POLICIES, RELATIONSHIPS);
+  const eventsRouter = createEventsRouter(EVENTS, RELATIONSHIPS);
+  const safeSignalRouter = createSafeSignalRouter(SAFE_SIGNALS, RELATIONSHIPS, io);
+  const removalRouter = createRemovalRouter(REMOVALS, RELATIONSHIPS, io);
+  const heartbeatRouter = createHeartbeatRouter(HEARTBEATS, RELATIONSHIPS);
+
   app.use('/login', loginLimiter, authRouter);
   app.use('/requests', apiLimiter, requestsRouter);
+  app.use('/pair', apiLimiter, pairingRouter);
+  app.use('/policy', apiLimiter, policyRouter);
+  app.use('/events', apiLimiter, eventsRouter);
+  app.use('/safesignal', apiLimiter, safeSignalRouter);
+  app.use('/removal-request', apiLimiter, removalRouter);
+  app.use('/removal-requests', apiLimiter, removalRouter);
+  app.use('/heartbeat', apiLimiter, heartbeatRouter);
+  app.use('/device-status', apiLimiter, heartbeatRouter);
 }
 
 // ─── Centralised Error Handler ────────────────────────────────────────────────
@@ -182,4 +219,16 @@ startServer().catch((err) => {
 });
 
 // Export for testing
-module.exports = { app, server, io, getUsers: () => USERS, getRequests: () => REQUESTS };
+module.exports = {
+  app,
+  server,
+  io,
+  getUsers: () => USERS,
+  getRequests: () => REQUESTS,
+  getPairing: () => PAIRING,
+  getPolicies: () => POLICIES,
+  getEvents: () => EVENTS,
+  getSafeSignals: () => SAFE_SIGNALS,
+  getRemovals: () => REMOVALS,
+  getHeartbeats: () => HEARTBEATS,
+};

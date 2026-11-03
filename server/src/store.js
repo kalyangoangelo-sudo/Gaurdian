@@ -76,4 +76,63 @@ function createRequestsStore() {
   return new Map();
 }
 
-module.exports = { seedUsers, RELATIONSHIPS, createRequestsStore };
+// ─── Pairing Store ────────────────────────────────────────────────────────────
+//
+// Maps code (6-digit string) → { parentId, expiresAt (epoch ms) }
+
+function createPairingStore() {
+  return new Map();
+}
+
+// ─── Policies Store ───────────────────────────────────────────────────────────
+//
+// Maps childId → { contentCategories, blockedKeywords, trustedDomains, updatedAt }
+
+function createPoliciesStore() {
+  return new Map();
+}
+
+// ─── Events Store ─────────────────────────────────────────────────────────────
+//
+// Maps id → { id, childId, type, detail, timestamp }
+
+function createEventsStore() {
+  return new Map();
+}
+
+// ─── SafeSignal Store ─────────────────────────────────────────────────────────
+//
+// Maps id → { id, childId, category, description, status, submittedAt,
+//             acknowledgedAt, action }
+
+function createSafeSignalStore() {
+  return new Map();
+}
+
+// ─── Removal Store ────────────────────────────────────────────────────────────
+//
+// Maps id → { id, childId, reason, status, requestedAt, decidedAt }
+
+function createRemovalStore() {
+  return new Map();
+}
+
+// ─── Heartbeat Store ──────────────────────────────────────────────────────────
+//
+// Maps childId → { deviceId, timestamp, policyVersion }
+
+function createHeartbeatStore() {
+  return new Map();
+}
+
+module.exports = {
+  seedUsers,
+  RELATIONSHIPS,
+  createRequestsStore,
+  createPairingStore,
+  createPoliciesStore,
+  createEventsStore,
+  createSafeSignalStore,
+  createRemovalStore,
+  createHeartbeatStore,
+};

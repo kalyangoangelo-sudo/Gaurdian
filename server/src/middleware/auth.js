@@ -10,6 +10,9 @@ const jwt = require('jsonwebtoken');
 /**
  * Express middleware – verifies Authorization: Bearer <token>
  * On success sets req.user = { id, username, role }
+ *
+ * 401 if Authorization header is missing.
+ * 401 if the token is invalid or expired (treated as unauthenticated).
  */
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -28,4 +31,24 @@ function requireAuth(req, res, next) {
   }
 }
 
-module.exports = { requireAuth };
+/**
+ * Middleware factory – checks that req.user.role matches the required role.
+ * Must be used after requireAuth so that req.user is already populated.
+ *
+ * @param {string} role  The required role ('parent' | 'child')
+ * @returns {Function} Express middleware
+ */
+function requireRole(role) {
+  return function (req, res, next) {
+    if (!req.user) {
+      // Defensive: requireAuth was not called first
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
+    if (req.user.role !== role) {
+      return res.status(403).json({ error: `This action requires the '${role}' role.` });
+    }
+    next();
+  };
+}
+
+module.exports = { requireAuth, requireRole };
