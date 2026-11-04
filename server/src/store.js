@@ -41,8 +41,27 @@ async function seedUsers() {
   users.set('child-1', {
     id: 'child-1',
     username: 'child',
+    email: 'child@guardian.app',
     hash: childHash,
     role: 'child',
+  });
+
+  const caseworkerHash = await bcrypt.hash('Caseworker123!', SALT_ROUNDS);
+  users.set('caseworker-1', {
+    id: 'caseworker-1',
+    username: 'caseworker',
+    email: 'caseworker@guardian.app',
+    hash: caseworkerHash,
+    role: 'caseworker',
+  });
+
+  const teacherHash = await bcrypt.hash('Teacher123!', SALT_ROUNDS);
+  users.set('teacher-1', {
+    id: 'teacher-1',
+    username: 'teacher',
+    email: 'teacher@guardian.app',
+    hash: teacherHash,
+    role: 'teacher',
   });
 
   return users;
@@ -125,6 +144,38 @@ function createHeartbeatStore() {
   return new Map();
 }
 
+// ─── Cases Store ──────────────────────────────────────────────────────────────
+//
+// Maps id → full case object (see SafeReport schema)
+
+function createCasesStore() {
+  return new Map();
+}
+
+// ─── Evidence Store ───────────────────────────────────────────────────────────
+//
+// Maps id → { id, caseId, filename, mimetype, size, sha256, data (base64), uploadedAt }
+
+function createEvidenceStore() {
+  return new Map();
+}
+
+// ─── Organizations Store ──────────────────────────────────────────────────────
+//
+// Maps id → { id, name, type, plan, status, createdAt }
+
+function createOrganizationsStore() {
+  return new Map();
+}
+
+// ─── Demo Requests Store ──────────────────────────────────────────────────────
+//
+// Maps id → { id, orgId, contactName, email, createdAt }
+
+function createDemoRequestsStore() {
+  return new Map();
+}
+
 module.exports = {
   seedUsers,
   RELATIONSHIPS,
@@ -135,4 +186,8 @@ module.exports = {
   createSafeSignalStore,
   createRemovalStore,
   createHeartbeatStore,
+  createCasesStore,
+  createEvidenceStore,
+  createOrganizationsStore,
+  createDemoRequestsStore,
 };

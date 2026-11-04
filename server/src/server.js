@@ -47,6 +47,10 @@ const {
   createSafeSignalStore,
   createRemovalStore,
   createHeartbeatStore,
+  createCasesStore,
+  createEvidenceStore,
+  createOrganizationsStore,
+  createDemoRequestsStore,
 } = require('./store');
 const { createAuthRouter } = require('./routes/auth');
 const { createRequestsRouter } = require('./routes/requests');
@@ -56,6 +60,10 @@ const { createEventsRouter } = require('./routes/events');
 const { createSafeSignalRouter } = require('./routes/safesignal');
 const { createRemovalRouter } = require('./routes/removal');
 const { createHeartbeatRouter } = require('./routes/heartbeat');
+const { createReportsRouter } = require('./routes/reports');
+const { createCasesRouter } = require('./routes/cases');
+const { createEvidenceRouter } = require('./routes/evidence');
+const { createOrganizationsRouter } = require('./routes/organizations');
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const isDev = process.env.NODE_ENV !== 'production';
@@ -146,6 +154,10 @@ const EVENTS = createEventsStore();
 const SAFE_SIGNALS = createSafeSignalStore();
 const REMOVALS = createRemovalStore();
 const HEARTBEATS = createHeartbeatStore();
+const CASES = createCasesStore();
+const EVIDENCE = createEvidenceStore();
+const ORGS = createOrganizationsStore();
+const DEMO_REQUESTS = createDemoRequestsStore();
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +182,10 @@ function mountRoutes() {
   const safeSignalRouter = createSafeSignalRouter(SAFE_SIGNALS, RELATIONSHIPS, io);
   const removalRouter = createRemovalRouter(REMOVALS, RELATIONSHIPS, io);
   const heartbeatRouter = createHeartbeatRouter(HEARTBEATS, RELATIONSHIPS);
+  const reportsRouter = createReportsRouter(CASES, RELATIONSHIPS, io);
+  const casesRouter = createCasesRouter(CASES, USERS, io);
+  const evidenceRouter = createEvidenceRouter(EVIDENCE, CASES);
+  const organizationsRouter = createOrganizationsRouter(ORGS, DEMO_REQUESTS);
 
   app.use('/login', loginLimiter, authRouter);
   app.use('/requests', apiLimiter, requestsRouter);
@@ -181,6 +197,12 @@ function mountRoutes() {
   app.use('/removal-requests', apiLimiter, removalRouter);
   app.use('/heartbeat', apiLimiter, heartbeatRouter);
   app.use('/device-status', apiLimiter, heartbeatRouter);
+  app.use('/reports', apiLimiter, reportsRouter);
+  app.use('/cases', apiLimiter, casesRouter);
+  app.use('/evidence', apiLimiter, evidenceRouter);
+  app.use('/organizations', apiLimiter, organizationsRouter);
+  // Caseworker login is mounted under cases router at /auth/caseworker/login
+  app.use('/', apiLimiter, casesRouter);
 }
 
 // ─── Centralised Error Handler ────────────────────────────────────────────────
@@ -231,4 +253,8 @@ module.exports = {
   getSafeSignals: () => SAFE_SIGNALS,
   getRemovals: () => REMOVALS,
   getHeartbeats: () => HEARTBEATS,
+  getCases: () => CASES,
+  getEvidence: () => EVIDENCE,
+  getOrgs: () => ORGS,
+  getDemoRequests: () => DEMO_REQUESTS,
 };

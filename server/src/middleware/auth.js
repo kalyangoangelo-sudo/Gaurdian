@@ -35,17 +35,18 @@ function requireAuth(req, res, next) {
  * Middleware factory – checks that req.user.role matches the required role.
  * Must be used after requireAuth so that req.user is already populated.
  *
- * @param {string} role  The required role ('parent' | 'child')
+ * @param {string|string[]} role  The required role(s) ('parent' | 'child' | 'caseworker' | 'teacher')
  * @returns {Function} Express middleware
  */
 function requireRole(role) {
+  const allowed = Array.isArray(role) ? role : [role];
   return function (req, res, next) {
     if (!req.user) {
       // Defensive: requireAuth was not called first
       return res.status(401).json({ error: 'Authentication required.' });
     }
-    if (req.user.role !== role) {
-      return res.status(403).json({ error: `This action requires the '${role}' role.` });
+    if (!allowed.includes(req.user.role)) {
+      return res.status(403).json({ error: `This action requires the '${allowed.join("' or '")}' role.` });
     }
     next();
   };
