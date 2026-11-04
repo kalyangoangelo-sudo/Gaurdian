@@ -2,6 +2,7 @@
  * LoginScreen.tsx
  *
  * Firebase Auth login — uses email + password.
+ * Supports English / Luganda via useTranslation.
  */
 
 import React, { useState } from 'react';
@@ -11,9 +12,11 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Colors, Spacing, Radius, FontSize } from '../styles/theme';
+import { useTranslation } from '../localization/useTranslation';
 
 export default function LoginScreen() {
   const { login, isLoading, loginError } = useAuth();
+  const { t, lang, setLang } = useTranslation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,22 +34,32 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
+        {/* Language toggle */}
+        <TouchableOpacity
+          style={styles.langToggle}
+          onPress={() => setLang(lang === 'en' ? 'lg' : 'en')}
+          accessibilityRole="button"
+          accessibilityLabel={t('language_toggle')}
+        >
+          <Text style={styles.langToggleText}>{t('language_toggle')}</Text>
+        </TouchableOpacity>
+
         {/* Branding */}
         <View style={styles.brandContainer}>
           <Text style={styles.shield}>🛡</Text>
-          <Text style={styles.brandName}>GuardianLink Lite</Text>
-          <Text style={styles.tagline}>Safe browsing, together.</Text>
+          <Text style={styles.brandName}>{t('brand_name')}</Text>
+          <Text style={styles.tagline}>{t('tagline')}</Text>
         </View>
 
         {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sign In</Text>
+          <Text style={styles.cardTitle}>{t('sign_in')}</Text>
 
           {/* Email */}
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t('label_email')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="your@email.com"
+            placeholder={t('placeholder_email')}
             placeholderTextColor={Colors.textMuted}
             value={email}
             onChangeText={setEmail}
@@ -54,27 +67,27 @@ export default function LoginScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             returnKeyType="next"
-            accessibilityLabel="Email"
+            accessibilityLabel={t('label_email')}
           />
 
           {/* Password */}
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>{t('label_password')}</Text>
           <View style={styles.passwordRow}>
             <TextInput
               style={[styles.input, styles.passwordInput]}
-              placeholder="Enter your password"
+              placeholder={t('placeholder_password')}
               placeholderTextColor={Colors.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               returnKeyType="done"
               onSubmitEditing={handleLogin}
-              accessibilityLabel="Password"
+              accessibilityLabel={t('label_password')}
             />
             <TouchableOpacity
               onPress={() => setShowPassword(v => !v)}
               style={styles.eyeBtn}
-              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              accessibilityLabel={showPassword ? t('hide_password') : t('show_password')}
             >
               <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
             </TouchableOpacity>
@@ -96,15 +109,15 @@ export default function LoginScreen() {
           >
             {isLoading
               ? <ActivityIndicator color={Colors.white} size="small" />
-              : <Text style={styles.buttonText}>Sign In</Text>
+              : <Text style={styles.buttonText}>{t('sign_in')}</Text>
             }
           </TouchableOpacity>
 
           {/* Demo accounts hint */}
           <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>Demo accounts</Text>
-            <Text style={styles.demoText}>Parent: kalyangoangelo@gmail.com / Parent123!</Text>
-            <Text style={styles.demoText}>Child:  kalyango.200@gmail.com / Child123!</Text>
+            <Text style={styles.demoTitle}>{t('demo_accounts')}</Text>
+            <Text style={styles.demoText}>{t('demo_parent')}</Text>
+            <Text style={styles.demoText}>{t('demo_child')}</Text>
           </View>
         </View>
 
@@ -116,6 +129,20 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.backgroundPage },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: Spacing.lg },
+  langToggle: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.sm,
+  },
+  langToggleText: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
   brandContainer: { alignItems: 'center', marginBottom: Spacing.xl },
   shield: { fontSize: 52, marginBottom: Spacing.sm },
   brandName: { fontSize: FontSize.xxxl, fontWeight: '700', color: Colors.primary, letterSpacing: 0.5 },

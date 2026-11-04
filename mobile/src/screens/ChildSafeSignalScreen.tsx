@@ -2,8 +2,7 @@
  * ChildSafeSignalScreen.tsx
  *
  * Child — report a safety concern via SafeSignal.
- * Categories: Suspicious Message, Cyberbullying, Threats,
- *             Inappropriate Request, Suspicious Link, Other.
+ * Supports English / Luganda via useTranslation.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -17,23 +16,32 @@ import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Colors, FontSize, Spacing, Radius } from '../styles/theme';
+import { useTranslation } from '../localization/useTranslation';
 
 const NAVY = '#1B2A4A';
 const TEAL = '#00B4D8';
 
-const CATEGORIES = [
-  { key: 'Suspicious Message',    icon: '💬' },
-  { key: 'Cyberbullying',         icon: '😢' },
-  { key: 'Threats',               icon: '⚠️' },
-  { key: 'Inappropriate Request', icon: '🚫' },
-  { key: 'Suspicious Link',       icon: '🔗' },
-  { key: 'Other',                 icon: '❓' },
-] as const;
-
-type Category = (typeof CATEGORIES)[number]['key'];
+type Category =
+  | 'Suspicious Message'
+  | 'Cyberbullying'
+  | 'Threats'
+  | 'Inappropriate Request'
+  | 'Suspicious Link'
+  | 'Other';
 
 export default function ChildSafeSignalScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+
+  const CATEGORIES: { key: Category; icon: string; label: string }[] = [
+    { key: 'Suspicious Message',    icon: '💬', label: t('cat_suspicious_message') },
+    { key: 'Cyberbullying',         icon: '😢', label: t('cat_cyberbullying') },
+    { key: 'Threats',               icon: '⚠️', label: t('cat_threats') },
+    { key: 'Inappropriate Request', icon: '🚫', label: t('cat_inappropriate_request') },
+    { key: 'Suspicious Link',       icon: '🔗', label: t('cat_suspicious_link') },
+    { key: 'Other',                 icon: '❓', label: t('cat_other') },
+  ];
+
   const [category, setCategory] = useState<Category | null>(null);
   const [description, setDescription] = useState('');
   const [submittedText, setSubmittedText] = useState('');
@@ -53,25 +61,22 @@ export default function ChildSafeSignalScreen() {
       });
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit report.');
+      setError(err instanceof Error ? err.message : t('btn_submit_report'));
     } finally {
       setSubmitting(false);
     }
-  }, [category, description, submittedText]);
+  }, [category, description, submittedText, t]);
 
   if (success) {
     return (
       <View style={styles.flex}>
-        <ScreenHeader title="SafeSignal" onBack={() => router.back()} />
+        <ScreenHeader title={t('safe_signal_title')} onBack={() => router.back()} />
         <View style={styles.centeredContent}>
           <Text style={styles.successIcon}>✅</Text>
-          <Text style={styles.successTitle}>Report Submitted</Text>
-          <Text style={styles.successText}>
-            Your safety concern has been sent to your guardian for review.
-            You are not alone — help is on the way.
-          </Text>
+          <Text style={styles.successTitle}>{t('report_submitted')}</Text>
+          <Text style={styles.successText}>{t('report_submitted_text')}</Text>
           <PrimaryButton
-            label="Done"
+            label={t('safesignal_done')}
             onPress={() => router.back()}
             style={styles.doneBtn}
           />
@@ -85,15 +90,15 @@ export default function ChildSafeSignalScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScreenHeader title="SafeSignal — Report a Concern" onBack={() => router.back()} />
+      <ScreenHeader title={t('safe_signal_screen_title')} onBack={() => router.back()} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.sectionLabel}>What is happening?</Text>
+        <Text style={styles.sectionLabel}>{t('what_is_happening')}</Text>
         <View style={styles.categoryGrid}>
-          {CATEGORIES.map(({ key, icon }) => (
+          {CATEGORIES.map(({ key, icon, label }) => (
             <TouchableOpacity
               key={key}
               style={[
@@ -102,7 +107,7 @@ export default function ChildSafeSignalScreen() {
               ]}
               onPress={() => setCategory(key)}
               accessibilityRole="button"
-              accessibilityLabel={`Category: ${key}`}
+              accessibilityLabel={label}
               accessibilityState={{ selected: category === key }}
             >
               <Text style={styles.categoryIcon}>{icon}</Text>
@@ -112,39 +117,39 @@ export default function ChildSafeSignalScreen() {
                   category === key && styles.categoryLabelSelected,
                 ]}
               >
-                {key}
+                {label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>Describe what happened *</Text>
+        <Text style={styles.sectionLabel}>{t('describe_what_happened')}</Text>
         <Card style={styles.inputCard}>
           <TextInput
             style={styles.textArea}
-            placeholder="Describe the situation in your own words…"
+            placeholder={t('placeholder_describe')}
             placeholderTextColor={Colors.textMuted}
             value={description}
             onChangeText={setDescription}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
-            accessibilityLabel="Description"
+            accessibilityLabel={t('describe_what_happened')}
           />
         </Card>
 
-        <Text style={styles.sectionLabel}>Paste the message or content (optional)</Text>
+        <Text style={styles.sectionLabel}>{t('paste_message_content')}</Text>
         <Card style={styles.inputCard}>
           <TextInput
             style={styles.textArea}
-            placeholder="Paste the suspicious message, link, or text here…"
+            placeholder={t('placeholder_paste')}
             placeholderTextColor={Colors.textMuted}
             value={submittedText}
             onChangeText={setSubmittedText}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
-            accessibilityLabel="Submitted text"
+            accessibilityLabel={t('paste_message_content')}
           />
         </Card>
 
@@ -155,16 +160,14 @@ export default function ChildSafeSignalScreen() {
         ) : null}
 
         <PrimaryButton
-          label="Submit Report"
+          label={t('btn_submit_report')}
           onPress={handleSubmit}
           loading={submitting}
           disabled={!category || !description.trim()}
           style={styles.submitBtn}
         />
 
-        <Text style={styles.disclaimer}>
-          🔒 Your report is private and only shared with your guardian.
-        </Text>
+        <Text style={styles.disclaimer}>{t('report_private_disclaimer')}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

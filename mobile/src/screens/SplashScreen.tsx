@@ -2,19 +2,23 @@
  * SplashScreen.tsx
  *
  * Shown while Firebase restores the auth session on app launch.
+ * Supports English / Luganda via useTranslation.
  */
 
 import React from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { Colors, FontSize, Spacing } from '../styles/theme';
+import { useTranslation } from '../localization/useTranslation';
 
 export default function SplashScreen() {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
       <Text style={styles.shield}>🛡</Text>
-      <Text style={styles.title}>GuardianLink Lite</Text>
+      <Text style={styles.title}>{t('brand_name')}</Text>
       <ActivityIndicator size="large" color={Colors.blue} style={styles.spinner} />
-      <Text style={styles.subtitle}>Restoring session…</Text>
+      <Text style={styles.subtitle}>{t('restoring_session')}</Text>
     </View>
   );
 }

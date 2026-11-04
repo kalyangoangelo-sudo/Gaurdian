@@ -3,12 +3,13 @@
  *
  * Child view — Firestore-backed.
  * Real-time updates via onSnapshot (no Socket.IO needed).
+ * Supports English / Luganda via useTranslation.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, FlatList, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
@@ -27,9 +28,11 @@ import { RequestCard } from '../components/RequestCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Colors, Spacing, Radius, FontSize } from '../styles/theme';
 import type { AccessRequest } from '../types';
+import { useTranslation } from '../localization/useTranslation';
 
 export default function ChildDashboard() {
   const { user, logout } = useAuth();
+  const { t, lang, setLang } = useTranslation();
 
   const [urlInput, setUrlInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -85,21 +88,19 @@ export default function ChildDashboard() {
     try {
       await createRequest(user.id, parentId, trimmed);
       setUrlInput('');
-      setSubmitSuccess('Request sent! Your parent will be notified.');
+      setSubmitSuccess(t('request_sent_success'));
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to submit.');
+      setSubmitError(err instanceof Error ? err.message : t('failed_submit_request'));
     } finally {
       setSubmitting(false);
     }
-  }, [urlInput, user, parentId]);
+  }, [urlInput, user, parentId, t]);
 
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyIcon}>📋</Text>
-      <Text style={styles.emptyTitle}>No requests yet</Text>
-      <Text style={styles.emptyText}>
-        Enter a website URL above and tap "Request Access".
-      </Text>
+      <Text style={styles.emptyTitle}>{t('no_requests_yet')}</Text>
+      <Text style={styles.emptyText}>{t('no_requests_text')}</Text>
     </View>
   );
 
@@ -118,15 +119,27 @@ export default function ChildDashboard() {
         onLogout={logout}
       />
 
+      {/* Language toggle */}
+      <View style={styles.langRow}>
+        <TouchableOpacity
+          style={styles.langToggle}
+          onPress={() => setLang(lang === 'en' ? 'lg' : 'en')}
+          accessibilityRole="button"
+          accessibilityLabel={t('language_toggle')}
+        >
+          <Text style={styles.langToggleText}>{t('language_toggle')}</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.container}>
         {/* Request form */}
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Request Website Access</Text>
-          <Text style={styles.formHint}>Ask your parent for permission to visit a website.</Text>
+          <Text style={styles.formTitle}>{t('request_website_access')}</Text>
+          <Text style={styles.formHint}>{t('request_access_hint')}</Text>
 
           <TextInput
             style={styles.urlInput}
-            placeholder="https://example.com"
+            placeholder={t('placeholder_url')}
             placeholderTextColor={Colors.textMuted}
             value={urlInput}
             onChangeText={(v) => { setUrlInput(v); setSubmitError(null); setSubmitSuccess(null); }}
@@ -135,7 +148,7 @@ export default function ChildDashboard() {
             keyboardType="url"
             returnKeyType="send"
             onSubmitEditing={handleSubmit}
-            accessibilityLabel="Website URL"
+            accessibilityLabel={t('placeholder_url')}
           />
 
           {submitError ? (
@@ -151,7 +164,7 @@ export default function ChildDashboard() {
           ) : null}
 
           <PrimaryButton
-            label="Request Access"
+            label={t('btn_request_access')}
             onPress={handleSubmit}
             loading={submitting}
             disabled={!urlInput.trim() || !parentId}
@@ -159,11 +172,11 @@ export default function ChildDashboard() {
           />
 
           {!parentId && (
-            <Text style={styles.warnText}>⚠ No parent account linked to your account yet.</Text>
+            <Text style={styles.warnText}>{t('no_parent_linked')}</Text>
           )}
         </View>
 
-        <Text style={styles.sectionTitle}>Your Requests</Text>
+        <Text style={styles.sectionTitle}>{t('your_requests')}</Text>
 
         {listError ? (
           <View style={styles.errorBox}>
@@ -186,6 +199,15 @@ export default function ChildDashboard() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.backgroundPage },
+  langRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: Spacing.md, paddingTop: Spacing.xs },
+  langToggle: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  langToggleText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
   container: { flex: 1, padding: Spacing.md },
   formCard: {
     backgroundColor: Colors.backgroundCard,

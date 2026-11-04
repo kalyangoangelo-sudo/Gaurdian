@@ -2,6 +2,7 @@
  * ChildRequestAccessScreen.tsx
  *
  * Child — request access to a blocked website.
+ * Supports English / Luganda via useTranslation.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -15,11 +16,13 @@ import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Colors, FontSize, Spacing, Radius } from '../styles/theme';
+import { useTranslation } from '../localization/useTranslation';
 
 const TEAL = '#00B4D8';
 
 export default function ChildRequestAccessScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [url, setUrl] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -36,24 +39,22 @@ export default function ChildRequestAccessScreen() {
       await apiPost('/requests', { url: trimmedUrl, reason: trimmedReason });
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit request.');
+      setError(err instanceof Error ? err.message : t('failed_submit_request'));
     } finally {
       setSubmitting(false);
     }
-  }, [url, reason]);
+  }, [url, reason, t]);
 
   if (success) {
     return (
       <View style={styles.flex}>
-        <ScreenHeader title="Request Access" onBack={() => router.back()} />
+        <ScreenHeader title={t('request_access_short_title')} onBack={() => router.back()} />
         <View style={styles.centeredContent}>
           <Text style={styles.successIcon}>📤</Text>
-          <Text style={styles.successTitle}>Request Sent!</Text>
-          <Text style={styles.successText}>
-            Your parent has been notified and will review your request shortly.
-          </Text>
+          <Text style={styles.successTitle}>{t('request_sent_title')}</Text>
+          <Text style={styles.successText}>{t('request_sent_text')}</Text>
           <PrimaryButton
-            label="Done"
+            label={t('btn_done')}
             onPress={() => router.back()}
             style={styles.doneBtn}
           />
@@ -67,42 +68,39 @@ export default function ChildRequestAccessScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScreenHeader title="Request Website Access" onBack={() => router.back()} />
+      <ScreenHeader title={t('request_access_title')} onBack={() => router.back()} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.intro}>
-          Ask your guardian for permission to visit a specific website.
-          They will be notified and can approve or reject your request.
-        </Text>
+        <Text style={styles.intro}>{t('request_access_intro')}</Text>
 
         <Card style={styles.formCard}>
-          <Text style={styles.fieldLabel}>Website URL *</Text>
+          <Text style={styles.fieldLabel}>{t('field_website_url')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="https://example.com"
+            placeholder={t('placeholder_url')}
             placeholderTextColor={Colors.textMuted}
             value={url}
             onChangeText={(v) => { setUrl(v); setError(null); }}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
-            accessibilityLabel="Website URL"
+            accessibilityLabel={t('field_website_url')}
           />
 
-          <Text style={[styles.fieldLabel, { marginTop: Spacing.md }]}>Reason *</Text>
+          <Text style={[styles.fieldLabel, { marginTop: Spacing.md }]}>{t('field_reason')}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Why do you need to visit this website?"
+            placeholder={t('placeholder_why_visit')}
             placeholderTextColor={Colors.textMuted}
             value={reason}
             onChangeText={(v) => { setReason(v); setError(null); }}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
-            accessibilityLabel="Reason for request"
+            accessibilityLabel={t('field_reason')}
           />
         </Card>
 
@@ -113,7 +111,7 @@ export default function ChildRequestAccessScreen() {
         ) : null}
 
         <PrimaryButton
-          label="Submit Request"
+          label={t('btn_submit_request')}
           onPress={handleSubmit}
           loading={submitting}
           disabled={!url.trim() || !reason.trim()}

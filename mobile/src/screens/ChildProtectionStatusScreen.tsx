@@ -3,6 +3,7 @@
  *
  * Child — view current protection status: policy from API,
  * heartbeat status from heartbeatService (refreshed every 30 s).
+ * Supports English / Luganda via useTranslation.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -18,6 +19,7 @@ import { ErrorState } from '../components/ErrorState';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { Colors, FontSize, Spacing, Radius } from '../styles/theme';
+import { useTranslation } from '../localization/useTranslation';
 
 const NAVY = '#1B2A4A';
 const REFRESH_INTERVAL_MS = 30_000;
@@ -34,6 +36,7 @@ interface PolicyData {
 
 export default function ChildProtectionStatusScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [policy, setPolicy] = useState<PolicyData | null>(null);
   const [heartbeatStatus, setHeartbeatStatus] = useState<string | null>(null);
   const [heartbeatLastSent, setHeartbeatLastSent] = useState<string | null>(null);
@@ -56,12 +59,12 @@ export default function ChildProtectionStatusScreen() {
       ]);
       setPolicy(policyData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load status.');
+      setError(err instanceof Error ? err.message : t('label_loading'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [loadHeartbeat]);
+  }, [loadHeartbeat, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -78,20 +81,20 @@ export default function ChildProtectionStatusScreen() {
 
   const isActive = heartbeatStatus === 'ACTIVE';
   const heartbeatColor = isActive ? Colors.approved : Colors.pending;
-  const heartbeatLabel = isActive ? 'Active' : 'Unknown';
+  const heartbeatLabel = isActive ? t('status_active') : t('status_unknown');
 
   if (loading) {
     return (
       <View style={styles.flex}>
-        <ScreenHeader title="Protection Status" onBack={() => router.back()} />
-        <LoadingState message="Loading your protection status…" />
+        <ScreenHeader title={t('protection_status_title')} onBack={() => router.back()} />
+        <LoadingState message={t('loading_protection_status')} />
       </View>
     );
   }
 
   return (
     <View style={styles.flex}>
-      <ScreenHeader title="Protection Status" onBack={() => router.back()} />
+      <ScreenHeader title={t('protection_status_title')} onBack={() => router.back()} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -100,13 +103,13 @@ export default function ChildProtectionStatusScreen() {
         {/* Shield hero */}
         <View style={styles.shieldContainer}>
           <Text style={styles.shieldIcon}>🛡️</Text>
-          <Text style={styles.shieldTitle}>GuardianLink Protection</Text>
-          <Text style={styles.shieldSubtitle}>Your device is being protected by your guardian.</Text>
+          <Text style={styles.shieldTitle}>{t('shield_title')}</Text>
+          <Text style={styles.shieldSubtitle}>{t('shield_subtitle')}</Text>
         </View>
 
         {/* Heartbeat status */}
         <Card style={styles.statusCard}>
-          <Text style={styles.cardTitle}>Device Connection</Text>
+          <Text style={styles.cardTitle}>{t('device_connection')}</Text>
           <View style={styles.heartbeatRow}>
             <View style={[styles.dot, { backgroundColor: heartbeatColor }]} />
             <StatusBadge label={heartbeatLabel} color={heartbeatColor} />
@@ -116,10 +119,10 @@ export default function ChildProtectionStatusScreen() {
               Last reported: {new Date(heartbeatLastSent).toLocaleString()}
             </Text>
           ) : (
-            <Text style={styles.statusHint}>Status not yet reported. Check back later.</Text>
+            <Text style={styles.statusHint}>{t('status_not_reported')}</Text>
           )}
           {isActive && (
-            <Text style={styles.statusHint}>Your device is connected and protection is active.</Text>
+            <Text style={styles.statusHint}>{t('device_connected')}</Text>
           )}
         </Card>
 
@@ -129,27 +132,27 @@ export default function ChildProtectionStatusScreen() {
         ) : policy ? (
           <>
             <Card style={styles.policyCard}>
-              <Text style={styles.cardTitle}>Active Content Filters</Text>
+              <Text style={styles.cardTitle}>{t('active_content_filters')}</Text>
               {policy.contentCategories &&
                 Object.entries(policy.contentCategories as Record<string, boolean>).map(
                   ([cat, enabled]) => (
                     <View key={cat} style={styles.policyRow}>
                       <Text style={styles.policyKey}>{cat}</Text>
                       <StatusBadge
-                        label={enabled ? 'Blocked' : 'Allowed'}
+                        label={enabled ? t('status_blocked') : t('status_allowed')}
                         color={enabled ? Colors.denied : Colors.approved}
                       />
                     </View>
                   )
                 )}
               {!policy.contentCategories && (
-                <Text style={styles.noDataText}>No content categories configured.</Text>
+                <Text style={styles.noDataText}>{t('no_content_categories')}</Text>
               )}
             </Card>
 
             {policy.blockedKeywords && policy.blockedKeywords.length > 0 && (
               <Card style={styles.policyCard}>
-                <Text style={styles.cardTitle}>Blocked Keywords</Text>
+                <Text style={styles.cardTitle}>{t('blocked_keywords')}</Text>
                 <View style={styles.chipsRow}>
                   {policy.blockedKeywords.map((kw: string) => (
                     <View key={kw} style={styles.chip}>
@@ -162,7 +165,7 @@ export default function ChildProtectionStatusScreen() {
 
             {policy.trustedDomains && policy.trustedDomains.length > 0 && (
               <Card style={styles.policyCard}>
-                <Text style={styles.cardTitle}>Trusted Websites</Text>
+                <Text style={styles.cardTitle}>{t('trusted_websites')}</Text>
                 <View style={styles.chipsRow}>
                   {policy.trustedDomains.map((d: string) => (
                     <View key={d} style={[styles.chip, styles.chipTrusted]}>
@@ -175,16 +178,11 @@ export default function ChildProtectionStatusScreen() {
           </>
         ) : (
           <Card style={styles.policyCard}>
-            <Text style={styles.noDataText}>
-              No policy data available. Your guardian may not have configured restrictions yet.
-            </Text>
+            <Text style={styles.noDataText}>{t('no_policy_data')}</Text>
           </Card>
         )}
 
-        <Text style={styles.disclaimer}>
-          Protection policies are set by your guardian and reviewed regularly.
-          If you have questions, talk to your guardian.
-        </Text>
+        <Text style={styles.disclaimer}>{t('protection_disclaimer')}</Text>
       </ScrollView>
     </View>
   );
