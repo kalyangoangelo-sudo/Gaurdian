@@ -10,6 +10,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { Colors, Spacing, Radius, FontSize } from '../styles/theme';
 import { useTranslation } from '../localization/useTranslation';
@@ -17,6 +18,7 @@ import { useTranslation } from '../localization/useTranslation';
 export default function LoginScreen() {
   const { login, isLoading, loginError } = useAuth();
   const { t, lang, setLang } = useTranslation();
+  const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -119,6 +121,16 @@ export default function LoginScreen() {
             <Text style={styles.demoText}>{t('demo_parent')}</Text>
             <Text style={styles.demoText}>{t('demo_child')}</Text>
           </View>
+
+          {/* Public report link */}
+          <TouchableOpacity
+            style={styles.reportLink}
+            onPress={() => router.push('/public-report' as any)}
+            accessibilityRole="link"
+            accessibilityLabel="Report an Incident — No login required"
+          >
+            <Text style={styles.reportLinkText}>🚨 Report an Incident (No login required)</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -194,4 +206,12 @@ const styles = StyleSheet.create({
   },
   demoTitle: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, marginBottom: Spacing.xs },
   demoText: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  reportLink: {
+    marginTop: Spacing.md,
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  reportLinkText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.denied },
 });

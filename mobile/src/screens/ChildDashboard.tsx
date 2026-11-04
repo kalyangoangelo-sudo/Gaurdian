@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'expo-router';
 import { usersRef } from '../services/firebase';
 import {
   createRequest,
@@ -33,6 +34,7 @@ import { useTranslation } from '../localization/useTranslation';
 export default function ChildDashboard() {
   const { user, logout } = useAuth();
   const { t, lang, setLang } = useTranslation();
+  const router = useRouter();
 
   const [urlInput, setUrlInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -178,6 +180,26 @@ export default function ChildDashboard() {
 
         <Text style={styles.sectionTitle}>{t('your_requests')}</Text>
 
+        {/* SafeReport quick-access links */}
+        <View style={styles.safeReportRow}>
+          <TouchableOpacity
+            style={styles.safeReportBtn}
+            onPress={() => router.push('/public-report' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Report an Incident"
+          >
+            <Text style={styles.safeReportBtnText}>🚨 Report Incident</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.safeReportBtn, styles.safeReportBtnSecondary]}
+            onPress={() => router.push('/case-status' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Check Case Status"
+          >
+            <Text style={[styles.safeReportBtnText, styles.safeReportBtnSecondaryText]}>📋 Case Status</Text>
+          </TouchableOpacity>
+        </View>
+
         {listError ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{listError}</Text>
@@ -246,4 +268,20 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.textPrimary, marginBottom: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
   listEmpty: { flexGrow: 1 },
+  safeReportRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  safeReportBtn: {
+    flex: 1,
+    backgroundColor: Colors.denied,
+    borderRadius: Radius.sm,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  safeReportBtnSecondary: {
+    backgroundColor: Colors.blueLight,
+    borderWidth: 1,
+    borderColor: Colors.blue,
+  },
+  safeReportBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.white },
+  safeReportBtnSecondaryText: { color: Colors.blue },
 });

@@ -136,4 +136,7 @@ export const lg: Record<keyof typeof en, string> = {
   // General
   btn_back: 'Ddayo',
   label_loading: 'Tutunuulira…',
+
+  // PublicReportScreen / CaseStatusScreen
+  invalid_case_ref_or_secret: 'Akabonero oba kodi ey\'okuddiza si ey\'amazima',
 };

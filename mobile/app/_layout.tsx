@@ -52,6 +52,19 @@ export default function RootLayout() {
         <Stack.Screen name="parent-manage-child" />
         <Stack.Screen name="parent-content-restrictions" />
         <Stack.Screen name="parent-device-security" />
+
+        {/* SafeReport public screens */}
+        <Stack.Screen name="public-report" />
+        <Stack.Screen name="case-status" />
+
+        {/* Caseworker portal */}
+        <Stack.Screen name="caseworker-login" />
+        <Stack.Screen name="caseworker-dashboard" />
+        <Stack.Screen name="case-detail" />
+        <Stack.Screen name="evidence" />
+
+        {/* Commercial */}
+        <Stack.Screen name="commercial" />
       </Stack>
     </AuthProvider>
   );

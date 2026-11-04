@@ -134,4 +134,7 @@ export const en = {
   // General
   btn_back: 'Back',
   label_loading: 'Loading…',
+
+  // PublicReportScreen / CaseStatusScreen
+  invalid_case_ref_or_secret: 'Invalid case reference or recovery code',
 };
