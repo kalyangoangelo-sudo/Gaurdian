@@ -2,7 +2,7 @@
  * EvidenceScreen.tsx
  *
  * Upload and verify evidence files for a case.
- * Uses expo-document-picker to select files and uploads them as FormData.
+ * Uses a text-based submission to send synthetic demo evidence (no native file picker needed).
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -11,7 +11,6 @@ import {
   ActivityIndicator, TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as DocumentPicker from 'expo-document-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { API_BASE_URL } from '../config/api';
 import { Colors, FontSize, Spacing, Radius } from '../styles/theme';
@@ -69,36 +68,35 @@ export default function EvidenceScreen() {
 
   useEffect(() => { fetchEvidence(); }, [fetchEvidence]);
 
+  const [demoFilename, setDemoFilename] = useState('demo-screenshot.png');
+
   const handleUpload = useCallback(async () => {
     if (!caseId) return;
     setUploadMsg(null);
     setUploadError(null);
     setUploadedSha256(null);
+    setUploading(true);
 
     try {
-      const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
-      if (result.canceled) return;
-
-      const asset = result.assets[0];
-      setUploading(true);
-
-      const formData = new FormData();
-      formData.append('file', {
-        uri: asset.uri,
-        name: asset.name,
-        type: asset.mimeType ?? 'application/octet-stream',
-      } as any);
-
+      // Submit synthetic demo evidence as JSON (no native file picker needed)
       const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/evidence/${caseId}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: demoFilename || 'demo-evidence.txt',
+          mimeType: 'text/plain',
+          // Synthetic demo content — not real evidence
+          content: `GuardianLink demo evidence file: ${demoFilename}. Submitted at ${new Date().toISOString()}. This is synthetic test data for hackathon demonstration purposes only.`,
+        }),
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      setUploadMsg(`Uploaded: ${asset.name}`);
+      setUploadMsg(`Uploaded: ${demoFilename}`);
       if (data.sha256) setUploadedSha256(data.sha256);
       fetchEvidence();
     } catch (err) {
@@ -106,7 +104,7 @@ export default function EvidenceScreen() {
     } finally {
       setUploading(false);
     }
-  }, [caseId, fetchEvidence]);
+  }, [caseId, demoFilename, fetchEvidence]);
 
   const handleVerify = useCallback(async () => {
     const evidenceId = verifyId.trim();
@@ -146,15 +144,26 @@ export default function EvidenceScreen() {
       {/* Upload section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Upload Evidence</Text>
+        <Text style={styles.demoNote}>⚠️ Demo mode — enter a synthetic filename for hackathon demonstration</Text>
+        <TextInput
+          style={[styles.input, { marginBottom: Spacing.sm }]}
+          placeholder="e.g. screenshot.png, chat-log.txt"
+          placeholderTextColor={Colors.textMuted}
+          value={demoFilename}
+          onChangeText={setDemoFilename}
+          autoCapitalize="none"
+          autoCorrect={false}
+          accessibilityLabel="Demo filename"
+        />
         <TouchableOpacity
-          style={[styles.uploadBtn, uploading && styles.btnDisabled]}
+          style={[styles.uploadBtn, (uploading || !demoFilename.trim()) && styles.btnDisabled]}
           onPress={handleUpload}
-          disabled={uploading}
+          disabled={uploading || !demoFilename.trim()}
           accessibilityRole="button"
         >
           {uploading
             ? <ActivityIndicator size="small" color={Colors.white} />
-            : <Text style={styles.uploadBtnText}>📂 Choose File & Upload</Text>
+            : <Text style={styles.uploadBtnText}>📤 Submit Demo Evidence</Text>
           }
         </TouchableOpacity>
 
@@ -337,4 +346,5 @@ const styles = StyleSheet.create({
   evidenceFilename: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
   evidenceMeta: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
   emptyText: { fontSize: FontSize.sm, color: Colors.textMuted, fontStyle: 'italic' },
+  demoNote: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: Spacing.sm, fontStyle: 'italic' },
 });

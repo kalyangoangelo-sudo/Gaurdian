@@ -21,6 +21,17 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { runClassifier } = require('../services/aiClassifier');
 const { tokenize } = require('../services/tokenizer');
 
+// Import DB functions conditionally so tests that don't call initDb()
+// still work with the in-memory store alone.
+let db = null;
+try {
+  db = require('../db/database');
+} catch (_) { /* DB not available in isolated test contexts */ }
+
+function _dbAvailable() {
+  try { db && db.getDb(); return true; } catch (_) { return false; }
+}
+
 const VALID_CATEGORIES = [
   'Cyberbullying',
   'Online Harassment',
@@ -80,13 +91,47 @@ async function createCase(CASES, { category, description, safeToContact, anonymo
   };
 
   CASES.set(id, newCase);
+
+  // ── Persist to SQLite — DB is authoritative ────────────────────────────────
+  // Write to SQLite FIRST. If the DB write fails, throw an error so the
+  // route handler returns 500 — the child must NOT receive a false success
+  // for a report that wasn't actually saved.
+  // In test mode (DB not available), the in-memory Map is the only store.
+  if (_dbAvailable()) {
+    try {
+      db.runInTransaction(() => {
+        db.insertCase(newCase);
+        db.appendAuditEntry(id, 'created',
+          anonymous ? 'anonymous' : (childId || submittedByRole), null);
+      });
+      // DB write succeeded — in-memory Map already set above as cache
+    } catch (dbErr) {
+      // DB write FAILED — remove from in-memory Map so we don't return
+      // a false success. The route handler's catch block will return 500.
+      CASES.delete(id);
+      throw new Error('Failed to save report: database error. Please try again.');
+    }
+  }
+
   return newCase;
 }
 
-/** Find a case by its caseRef string */
+/** Find a case by its caseRef string — checks in-memory first, then DB */
 function findByCaseRef(CASES, caseRef) {
+  // In-memory first (fastest path)
   for (const c of CASES.values()) {
     if (c.caseRef === caseRef) return c;
+  }
+  // DB fallback (after server restart)
+  if (_dbAvailable()) {
+    try {
+      const row = db.getCaseByCaseRef(caseRef);
+      if (row) {
+        // Re-hydrate into the in-memory store so subsequent lookups are fast
+        CASES.set(row.id, row);
+        return row;
+      }
+    } catch (_) {}
   }
   return null;
 }
@@ -105,6 +150,16 @@ function createReportsRouter(CASES, RELATIONSHIPS, io) {
     skip: () => process.env.NODE_ENV === 'test',
   });
 
+  // Tighter rate limit for recovery secret lookups — brute-force protection
+  const statusLimiter = rateLimit({
+    windowMs: 5 * 60_000, // 5-minute window
+    max: 10,              // 10 attempts per IP per 5 minutes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many status-check attempts. Please wait before trying again.' },
+    skip: () => process.env.NODE_ENV === 'test',
+  });
+
   // POST /reports/anonymous
   router.post('/anonymous', publicReportLimiter, async (req, res, next) => {
     try {
@@ -115,6 +170,9 @@ function createReportsRouter(CASES, RELATIONSHIPS, io) {
       }
       if (!description || typeof description !== 'string' || description.trim() === '') {
         return res.status(400).json({ error: 'description is required.' });
+      }
+      if (description.length > 5000) {
+        return res.status(400).json({ error: 'description must be 5000 characters or fewer.' });
       }
 
       const recoverySecret = generateRecoverySecret();
@@ -147,6 +205,9 @@ function createReportsRouter(CASES, RELATIONSHIPS, io) {
       if (!description || typeof description !== 'string' || description.trim() === '') {
         return res.status(400).json({ error: 'description is required.' });
       }
+      if (description.length > 5000) {
+        return res.status(400).json({ error: 'description must be 5000 characters or fewer.' });
+      }
 
       const recoverySecret = generateRecoverySecret();
       const recoverySecretHash = await bcrypt.hash(recoverySecret, 10);
@@ -168,7 +229,7 @@ function createReportsRouter(CASES, RELATIONSHIPS, io) {
   });
 
   // GET /reports/status/:caseRef  – body must contain recoverySecret
-  router.get('/status/:caseRef', publicReportLimiter, async (req, res, next) => {
+  router.get('/status/:caseRef', statusLimiter, async (req, res, next) => {
     try {
       const { caseRef } = req.params;
       const { recoverySecret } = req.body;
@@ -189,6 +250,7 @@ function createReportsRouter(CASES, RELATIONSHIPS, io) {
         category: found.category,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
+        response: found.childResponse || null,
       });
     } catch (err) {
       next(err);
@@ -196,7 +258,7 @@ function createReportsRouter(CASES, RELATIONSHIPS, io) {
   });
 
   // POST /reports/check-status  – RN-friendly body-based variant
-  router.post('/check-status', publicReportLimiter, async (req, res, next) => {
+  router.post('/check-status', statusLimiter, async (req, res, next) => {
     try {
       const { caseRef, recoverySecret } = req.body;
 
@@ -216,6 +278,7 @@ function createReportsRouter(CASES, RELATIONSHIPS, io) {
         category: found.category,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
+        response: found.childResponse || null,
       });
     } catch (err) {
       next(err);

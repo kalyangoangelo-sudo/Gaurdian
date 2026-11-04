@@ -25,15 +25,14 @@ const { makeReferral } = require('../services/referralService');
 const VALID_PRIORITIES = ['CRITICAL', 'HIGH', 'STANDARD'];
 
 const VALID_STATUSES = [
-  'Submitted',
-  'Awaiting Assessment',
-  'Under Review',
-  'Action Required',
-  'Referred',
-  'Follow-up Pending',
-  'Resolved',
-  'Closed',
+  'Submitted', 'Awaiting Assessment', 'Under Review', 'Action Required',
+  'Referred', 'Follow-up Pending', 'Resolved', 'Closed',
 ];
+
+// DB persistence layer (optional — degrades gracefully if not initialized)
+let db = null;
+try { db = require('../db/database'); } catch (_) {}
+function _db() { try { db && db.getDb(); return db; } catch (_) { return null; } }
 
 function createCasesRouter(CASES, USERS, io) {
   const router = express.Router();
@@ -68,7 +67,7 @@ function createCasesRouter(CASES, USERS, io) {
       const token = jwt.sign(
         { id: found.id, username: found.username, role: found.role },
         process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '24h', algorithm: 'HS256' }
       );
 
       return res.status(200).json({ token, role: 'caseworker' });
@@ -125,6 +124,21 @@ function createCasesRouter(CASES, USERS, io) {
     }
 
     const now = new Date().toISOString();
+
+    // ── Write to SQLite FIRST (transactional) ────────────────────────────────
+    const _d = _db();
+    if (_d) {
+      try {
+        _d.runInTransaction(() => {
+          _d.updateCaseField(c.id, 'human_priority', humanPriority);
+          _d.appendAuditEntry(c.id, 'assessed', req.user.id, { humanPriority });
+        });
+      } catch (dbErr) {
+        return res.status(500).json({ error: 'Failed to save assessment. Please try again.' });
+      }
+    }
+
+    // DB succeeded (or not available) — update in-memory cache
     c.humanPriority = humanPriority;
     c.updatedAt = now;
     c.auditTrail.push({ action: 'assessed', by: req.user.id, humanPriority, at: now });
@@ -143,6 +157,21 @@ function createCasesRouter(CASES, USERS, io) {
     }
 
     const now = new Date().toISOString();
+
+    // ── Write to SQLite FIRST (transactional) ────────────────────────────────
+    const _d = _db();
+    if (_d) {
+      try {
+        _d.runInTransaction(() => {
+          _d.addNote(c.id, note.trim(), req.user.id);
+          _d.appendAuditEntry(c.id, 'note_added', req.user.id, null);
+        });
+      } catch (dbErr) {
+        return res.status(500).json({ error: 'Failed to save note. Please try again.' });
+      }
+    }
+
+    // DB succeeded — update in-memory cache
     c.notes.push({ text: note.trim(), by: req.user.id, at: now });
     c.updatedAt = now;
     c.auditTrail.push({ action: 'note_added', by: req.user.id, at: now });
@@ -161,6 +190,21 @@ function createCasesRouter(CASES, USERS, io) {
     }
 
     const now = new Date().toISOString();
+
+    // ── Write to SQLite FIRST (transactional) ────────────────────────────────
+    const _d = _db();
+    if (_d) {
+      try {
+        _d.runInTransaction(() => {
+          _d.updateCaseField(c.id, 'status', status);
+          _d.appendAuditEntry(c.id, 'status_changed', req.user.id, { status });
+        });
+      } catch (dbErr) {
+        return res.status(500).json({ error: 'Failed to update status. Please try again.' });
+      }
+    }
+
+    // DB succeeded — update in-memory cache
     c.status = status;
     c.updatedAt = now;
     c.auditTrail.push({ action: 'status_changed', by: req.user.id, status, at: now });
@@ -176,12 +220,28 @@ function createCasesRouter(CASES, USERS, io) {
 
       const referral = await makeReferral(caseObj.id, req.body.service);
 
+      // ── Write to SQLite FIRST (transactional) ──────────────────────────────
+      const _d = _db();
+      if (_d) {
+        try {
+          _d.runInTransaction(() => {
+            _d.addReferral(caseObj.id, {
+              ...referral, id: require('crypto').randomUUID(),
+            });
+            _d.appendAuditEntry(caseObj.id, 'referred', req.user.username, {
+              service: referral.service, referralId: referral.referralId,
+            });
+          });
+        } catch (dbErr) {
+          return res.status(500).json({ error: 'Failed to record referral. Please try again.' });
+        }
+      }
+
+      // DB succeeded — update in-memory cache
       caseObj.referrals.push(referral);
       caseObj.auditTrail.push({
-        action: 'referred',
-        by: req.user.username,
-        service: referral.service,
-        referralId: referral.referralId,
+        action: 'referred', by: req.user.username,
+        service: referral.service, referralId: referral.referralId,
         at: new Date().toISOString(),
       });
 
@@ -191,10 +251,63 @@ function createCasesRouter(CASES, USERS, io) {
     }
   });
 
+  // ── PUT /cases/:id/response ────────────────────────────────────────────────
+  // Caseworker sends a pre-approved response template to the child.
+  // The response is stored on the case and returned via check-status.
+  router.put('/:id/response', requireAuth, requireRole('caseworker'), (req, res) => {
+    const c = CASES.get(req.params.id);
+    if (!c) return res.status(404).json({ error: 'Case not found.' });
+
+    const { response, responseTemplate } = req.body;
+    if (!response || typeof response !== 'string' || response.trim() === '') {
+      return res.status(400).json({ error: 'response is required.' });
+    }
+
+    const now = new Date().toISOString();
+
+    // ── Write to SQLite FIRST (transactional) ────────────────────────────────
+    const _d = _db();
+    if (_d) {
+      try {
+        _d.runInTransaction(() => {
+          _d.updateCaseField(c.id, 'child_response', response.trim());
+          _d.updateCaseField(c.id, 'response_template', responseTemplate || null);
+          _d.updateCaseField(c.id, 'response_sent_by', req.user.id);
+          _d.updateCaseField(c.id, 'response_sent_at', now);
+          _d.appendAuditEntry(c.id, 'response_sent', req.user.id,
+            { responseTemplate: responseTemplate || null });
+        });
+      } catch (dbErr) {
+        return res.status(500).json({ error: 'Failed to send response. Please try again.' });
+      }
+    }
+
+    // DB succeeded — update in-memory cache
+    c.childResponse = response.trim();
+    c.responseTemplate = responseTemplate || null;
+    c.responseSentBy = req.user.id;
+    c.responseSentAt = now;
+    c.updatedAt = now;
+    c.auditTrail.push({ action: 'response_sent', by: req.user.id, responseTemplate: responseTemplate || null, at: now });
+
+    return res.status(200).json({ id: c.id, caseRef: c.caseRef, responseSent: true });
+  });
+
   // ── GET /cases/:id/audit ───────────────────────────────────────────────────
   router.get('/:id/audit', requireAuth, requireRole('caseworker'), (req, res) => {
     const c = CASES.get(req.params.id);
     if (!c) return res.status(404).json({ error: 'Case not found.' });
+
+    // Merge in-memory audit trail with DB records (DB is authoritative after restart)
+    const _d = _db();
+    if (_d) {
+      try {
+        const dbAudit = _d.getAuditTrail(c.id);
+        if (dbAudit && dbAudit.length > c.auditTrail.length) {
+          return res.status(200).json(dbAudit);
+        }
+      } catch (_) {}
+    }
     return res.status(200).json(c.auditTrail);
   });
 

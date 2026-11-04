@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables (NEVER commit)
+server/.env
+.env
+*.env.local
+
+# Database files
+server/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Firebase credentials
+server/firebase-service-account.json
+*-service-account.json
+
+# Build outputs
+web/dist/
+mobile/.expo/
+*.apk
+
+# Temporary test outputs
+e2e-results.txt
+sec.txt
+security-results.txt
+VERIFICATION_REPORT.txt
+RESTART_TEST_RESULTS.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml

@@ -59,7 +59,7 @@ function createAuthRouter(users) {
       const token = jwt.sign(
         { id: foundUser.id, username: foundUser.username, role: foundUser.role },
         process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '24h', algorithm: 'HS256' }
       );
 
       return res.status(200).json({

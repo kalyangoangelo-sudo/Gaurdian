@@ -3,16 +3,19 @@
  *
  * Express middleware that verifies a Bearer JWT on protected routes.
  * Attaches the decoded payload to req.user on success.
+ *
+ * Security:
+ *  - Explicitly requires HS256 algorithm to prevent "alg: none" attacks
+ *  - Rejects tokens with missing required claims
  */
 
 const jwt = require('jsonwebtoken');
 
+const JWT_ALGORITHM = 'HS256';
+
 /**
  * Express middleware – verifies Authorization: Bearer <token>
  * On success sets req.user = { id, username, role }
- *
- * 401 if Authorization header is missing.
- * 401 if the token is invalid or expired (treated as unauthenticated).
  */
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -22,7 +25,15 @@ function requireAuth(req, res, next) {
 
   const token = authHeader.slice(7); // Remove "Bearer "
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: [JWT_ALGORITHM],  // Prevent 'alg: none' and RS256 confusion attacks
+    });
+
+    // Require essential claims
+    if (!payload.id || !payload.role) {
+      return res.status(401).json({ error: 'Invalid token claims.' });
+    }
+
     req.user = { id: payload.id, username: payload.username, role: payload.role };
     next();
   } catch (err) {

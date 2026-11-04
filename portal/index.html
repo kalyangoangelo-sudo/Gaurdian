@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1B2A4A">
+  <title>GuardianLink — Professional Portal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ─── Login View ─────────────────────────────────────────── -->
+  <section id="view-login" class="view active">
+    <div class="login-container">
+      <div class="login-brand">
+        <span class="login-shield">🛡</span>
+        <h1>GuardianLink</h1>
+        <p class="login-subtitle">Professional Portal — Caseworker Access</p>
+      </div>
+      <div class="login-form">
+        <div class="form-group">
+          <label>Role</label>
+          <select id="loginRole">
+            <option value="caseworker">Caseworker</option>
+            <option value="teacher">Teacher</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="loginUser">Username</label>
+          <input type="text" id="loginUser" placeholder="caseworker" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="loginPass">Password</label>
+          <input type="password" id="loginPass" placeholder="••••••••" autocomplete="off">
+        </div>
+        <button id="loginBtn" class="btn-primary">Sign In</button>
+        <div id="loginError" class="error-msg" style="display:none;"></div>
+        <div class="login-hint">
+          <p>Caseworker: <code>caseworker</code> / <code>Caseworker123!</code></p>
+          <p>Teacher: <code>teacher</code> / <code>Teacher123!</code></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Dashboard View ────────────────────────────────────── -->
+  <section id="view-dashboard" class="view">
+    <header class="portal-header">
+      <div class="portal-brand">
+        <span>🛡</span> GuardianLink Professional Portal
+      </div>
+      <div class="portal-user">
+        <span id="userBadge">Caseworker</span>
+        <button id="logoutBtn" class="btn-ghost">Logout</button>
+      </div>
+    </header>
+
+    <!-- Navigation tabs -->
+    <nav class="portal-nav" id="portalNav">
+      <button class="nav-tab active" data-tab="cases">Cases</button>
+      <button class="nav-tab" data-tab="curiosity">Curiosity Corner</button>
+      <button class="nav-tab" data-tab="lessons">Lessons</button>
+      <button class="nav-tab" data-tab="subscriptions">Subscriptions</button>
+    </nav>
+
+    <!-- Tab content panels -->
+    <div id="tab-cases" class="tab-panel active">
+
+    <div class="dashboard-layout">
+      <!-- Queue -->
+      <div class="queue-panel">
+        <div class="queue-header">
+          <h2>Case Queue</h2>
+          <div class="queue-filters">
+            <select id="filterPriority">
+              <option value="">All priorities</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="HIGH">HIGH</option>
+              <option value="STANDARD">STANDARD</option>
+            </select>
+            <select id="filterStatus">
+              <option value="">All statuses</option>
+              <option value="Submitted">Submitted</option>
+              <option value="Awaiting Assessment">Awaiting Assessment</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Action Required">Action Required</option>
+              <option value="Referred">Referred</option>
+              <option value="Follow-up Pending">Follow-up Pending</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Closed">Closed</option>
+            </select>
+            <button id="refreshBtn" class="btn-icon" title="Refresh">↻</button>
+          </div>
+        </div>
+        <div id="caseList" class="case-list">
+          <div class="loading">Loading cases…</div>
+        </div>
+      </div>
+
+      <!-- Case Detail -->
+      <div id="caseDetailPanel" class="detail-panel" style="display:none;">
+        <button id="closeDetailBtn" class="btn-ghost">← Back to queue</button>
+        <div id="caseDetailContent"></div>
+      </div>
+    </div>
+    </div><!-- /tab-cases -->
+
+    <!-- ═══ Curiosity Corner Tab ═══ -->
+    <div id="tab-curiosity" class="tab-panel">
+      <div class="queue-panel" style="max-width:none;">
+        <div class="queue-header">
+          <h2>Curiosity Corner — Pending Questions</h2>
+          <button id="refreshCuriosityBtn" class="btn-icon" title="Refresh">↻</button>
+        </div>
+        <div id="curiosityList" class="case-list">
+          <div class="empty">Click refresh to load questions</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Lessons Tab ═══ -->
+    <div id="tab-lessons" class="tab-panel">
+      <div style="padding:24px;">
+        <div class="queue-header">
+          <h2>Learning Library</h2>
+          <button id="refreshLessonsBtn" class="btn-icon" title="Refresh">↻</button>
+        </div>
+        <div id="lessonsList"></div>
+
+        <div id="teacherPanel" style="display:none;margin-top:24px;">
+          <h3 style="margin:16px 0 8px;">Assign Lesson</h3>
+          <div class="action-panel">
+            <select id="assignLessonId"><option value="">Select lesson…</option></select>
+            <input type="text" id="assignClassId" placeholder="Class ID (optional)" style="margin:8px 0;width:200px;display:inline-block;">
+            <button class="btn-primary" id="assignBtn" style="width:auto;padding:8px 16px;font-size:13px;">Assign</button>
+          </div>
+          <h3 style="margin:16px 0 8px;">My Assignments</h3>
+          <div id="assignmentList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Subscriptions Tab ═══ -->
+    <div id="tab-subscriptions" class="tab-panel">
+      <div style="padding:24px;">
+        <div class="queue-header">
+          <h2>Subscription Administration</h2>
+        </div>
+        <div class="action-panel" style="margin-bottom:16px;">
+          <h3>Register Organization</h3>
+          <input type="text" id="orgName" placeholder="Organization name" style="margin-bottom:8px;">
+          <select id="orgType" style="margin-bottom:8px;width:auto;display:inline-block;">
+            <option value="school">School</option>
+            <option value="ngo">NGO</option>
+            <option value="government">Government</option>
+            <option value="private">Private</option>
+          </select>
+          <select id="orgPlan" style="margin-bottom:8px;width:auto;display:inline-block;">
+            <option value="free">Free</option>
+            <option value="family">Family Premium</option>
+            <option value="school-starter">School Starter</option>
+            <option value="institutional">NGO / Institutional</option>
+          </select>
+          <input type="email" id="orgEmail" placeholder="Contact email (optional)" style="margin-bottom:8px;">
+          <button class="btn-primary" id="registerOrgBtn" style="width:auto;padding:8px 16px;font-size:13px;">Register</button>
+        </div>
+        <div id="orgList"></div>
+        <p style="font-size:12px;color:var(--gray);margin-top:16px;">⚠️ SIMULATED — No real payments are processed. For demonstration only.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <script src="portal.js"></script>
+</body>
+</html>

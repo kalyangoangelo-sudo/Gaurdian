@@ -8,6 +8,7 @@
 'use strict';
 
 const express = require('express');
+const crypto = require('crypto');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -17,16 +18,16 @@ const router = express.Router();
  *
  * @param {Map} pairingStore   code → { parentId, expiresAt }
  * @param {Map} relationships  childId → parentId
- * @param {Map} users          id → user (unused here but kept for symmetry)
  */
 function createPairingRouter(pairingStore, relationships) {
 
   // ── POST /pair/generate ───────────────────────────────────────────────────
   // Authenticated parent generates a one-time 6-digit pairing code valid for
   // 30 minutes.
+  // Uses crypto.randomInt for cryptographically secure code generation.
   router.post('/generate', requireAuth, requireRole('parent'), (req, res) => {
-    // Generate a zero-padded 6-digit numeric code
-    const code = String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+    // crypto.randomInt(min, max) is CSPRNG-backed (Node 14.10+)
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
     const expiresAt = Date.now() + 30 * 60 * 1000; // 30 minutes
 
     pairingStore.set(code, { parentId: req.user.id, expiresAt });

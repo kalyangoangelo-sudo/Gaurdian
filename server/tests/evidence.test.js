@@ -32,6 +32,18 @@ function buildEvidenceApp() {
   const EVIDENCE = createEvidenceStore();
   const CASES = createCasesStore();
 
+  // Pre-seed cases so the ownership check passes in tests
+  const now = new Date().toISOString();
+  const baseCaseFields = {
+    category: 'Other', description: 'test', safeToContact: true, anonymous: false,
+    childId: 'child-1', status: 'Submitted', aiResult: null, priority: 'STANDARD',
+    humanPriority: null, notes: [], referrals: [], auditTrail: [], recoverySecretHash: 'x',
+    submittedByRole: 'child', encryptedTokenMap: null, createdAt: now, updatedAt: now,
+  };
+  ['case-001', 'case-002', 'case-003'].forEach(id => {
+    CASES.set(id, { ...baseCaseFields, id, caseRef: id });
+  });
+
   app.use('/evidence', createEvidenceRouter(EVIDENCE, CASES));
 
   return { app, EVIDENCE, CASES };

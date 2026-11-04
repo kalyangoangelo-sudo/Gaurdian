@@ -30,9 +30,20 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === '') {
   process.exit(1);
 }
 
+// Warn if the placeholder dev secret is still set in production
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.JWT_SECRET.includes('replace_before_going_to_production')
+) {
+  console.error('[GuardianLink] FATAL: Default development JWT_SECRET detected in production. Refusing to start.');
+  process.exit(1);
+}
+
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const helmet = require('helmet');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
@@ -51,6 +62,11 @@ const {
   createEvidenceStore,
   createOrganizationsStore,
   createDemoRequestsStore,
+  createCuriosityStore,
+  createLessonsStore,
+  createQuizResultsStore,
+  createLessonAssignmentsStore,
+  createSubscriptionsStore,
 } = require('./store');
 const { createAuthRouter } = require('./routes/auth');
 const { createRequestsRouter } = require('./routes/requests');
@@ -64,6 +80,9 @@ const { createReportsRouter } = require('./routes/reports');
 const { createCasesRouter } = require('./routes/cases');
 const { createEvidenceRouter } = require('./routes/evidence');
 const { createOrganizationsRouter } = require('./routes/organizations');
+const { createCuriosityRouter } = require('./routes/curiosity');
+const { createLessonsRouter } = require('./routes/lessons');
+const { createSubscriptionsRouter } = require('./routes/subscriptions');
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const isDev = process.env.NODE_ENV !== 'production';
@@ -77,13 +96,75 @@ if (!isDev) {
   app.set('trust proxy', 1);
 }
 
+// ─── Security Headers (Helmet) ────────────────────────────────────────────────
+// Sets X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, HSTS (prod),
+// and a restrictive Content-Security-Policy.
+// Static assets served at /pwa, /portal, /app need script-src 'self' only.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"], // Tailwind uses inline styles
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'", 'ws:', 'wss:'],   // Allow WebSocket connections
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: isDev ? null : [],
+        frameAncestors: ["'none'"],
+      },
+    },
+    // Only enable HSTS in production behind HTTPS
+    hsts: isDev ? false : { maxAge: 31536000, includeSubDomains: true, preload: true },
+  })
+);
+
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-// Allow all origins in development. Tighten in production.
-app.use(cors({ origin: '*' }));
+// Read approved origins from CORS_ORIGIN env var (comma-separated list).
+// Falls back to localhost only in development.
+const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : (isDev ? ['http://localhost:5173', 'http://localhost:3001'] : []);
+
+app.use(
+  cors({
+    origin: isDev && ALLOWED_ORIGINS.length === 0
+      ? true  // Allow all origins only in dev if no explicit list set
+      : (origin, callback) => {
+          // Allow requests with no origin (same-origin, server-to-server)
+          if (!origin) return callback(null, true);
+          if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+          callback(new Error(`CORS policy: origin '${origin}' is not allowed`));
+        },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '16kb' }));
 app.use(express.urlencoded({ extended: false, limit: '16kb' }));
+
+// ─── No-Cache for API responses ───────────────────────────────────────────────
+// Prevents sensitive API responses from being cached in proxies/browsers.
+// Static assets (/app, /pwa, /portal) are not affected — served before this.
+app.use('/reports', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
+app.use('/cases', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
+app.use('/curiosity', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 const loginLimiter = rateLimit({
@@ -104,7 +185,11 @@ const apiLimiter = rateLimit({
 
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: {
+    origin: isDev ? true : ALLOWED_ORIGINS,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
 /**
@@ -158,12 +243,35 @@ const CASES = createCasesStore();
 const EVIDENCE = createEvidenceStore();
 const ORGS = createOrganizationsStore();
 const DEMO_REQUESTS = createDemoRequestsStore();
+const CURIOSITY = createCuriosityStore();
+const LESSONS = createLessonsStore();
+const QUIZ_RESULTS = createQuizResultsStore();
+const LESSON_ASSIGNMENTS = createLessonAssignmentsStore();
+const SUBSCRIPTIONS = createSubscriptionsStore();
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // Health check – no auth required
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ─── Static File Serving (PWA + Portal + React App) ──────────────────────────
+// Serve the child portal PWA at /pwa and the professional portal at /portal.
+// These connect to the same API without CORS issues.
+app.use('/pwa', express.static(path.join(__dirname, '../../pwa')));
+app.use('/portal', express.static(path.join(__dirname, '../../portal')));
+
+// Serve the React web application at /app (SPA with client-side routing)
+const webDist = path.join(__dirname, '../../web/dist');
+app.use('/app', express.static(webDist));
+// SPA fallback: any /app/* route serves index.html (React Router handles routing)
+app.get('/app/*', (req, res, next) => {
+  // Don't intercept API-like routes
+  if (req.path.includes('/assets/') || req.path.includes('/manifest.json') || req.path.includes('/sw.js')) {
+    return next();
+  }
+  res.sendFile(path.join(webDist, 'index.html'));
 });
 
 // Auth routes
@@ -186,6 +294,9 @@ function mountRoutes() {
   const casesRouter = createCasesRouter(CASES, USERS, io);
   const evidenceRouter = createEvidenceRouter(EVIDENCE, CASES);
   const organizationsRouter = createOrganizationsRouter(ORGS, DEMO_REQUESTS);
+  const curiosityRouter = createCuriosityRouter(CURIOSITY, io);
+  const lessonsRouter = createLessonsRouter(LESSONS, QUIZ_RESULTS, LESSON_ASSIGNMENTS, io);
+  const subscriptionsRouter = createSubscriptionsRouter(SUBSCRIPTIONS, ORGS);
 
   app.use('/login', loginLimiter, authRouter);
   app.use('/requests', apiLimiter, requestsRouter);
@@ -201,6 +312,9 @@ function mountRoutes() {
   app.use('/cases', apiLimiter, casesRouter);
   app.use('/evidence', apiLimiter, evidenceRouter);
   app.use('/organizations', apiLimiter, organizationsRouter);
+  app.use('/curiosity', apiLimiter, curiosityRouter);
+  app.use('/lessons', apiLimiter, lessonsRouter);
+  app.use('/subscriptions', apiLimiter, subscriptionsRouter);
   // Caseworker login is mounted under cases router at /auth/caseworker/login
   app.use('/', apiLimiter, casesRouter);
 }
@@ -219,18 +333,53 @@ app.use((err, _req, res, _next) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 async function startServer() {
+  // ── Initialize persistent SQLite database ─────────────────────────────────
+  try {
+    const { initDb } = require('./db/database');
+    initDb();
+    console.log('[DB] Persistent SQLite database initialized.');
+
+    // ── Hydrate in-memory CASES store from SQLite ───────────────────────────
+    // This ensures cases submitted before a restart are still visible in the
+    // caseworker queue after the server restarts.
+    try {
+      const dbModule = require('./db/database');
+      const allCases = dbModule.listCases();
+      if (allCases.length > 0) {
+        for (const c of allCases) {
+          // Load notes, referrals, and audit trail from DB
+          c.notes = dbModule.getNotes(c.id);
+          c.referrals = dbModule.getReferrals(c.id);
+          c.auditTrail = dbModule.getAuditTrail(c.id);
+          CASES.set(c.id, c);
+        }
+        console.log(`[DB] Hydrated ${allCases.length} cases from SQLite into memory.`);
+      }
+    } catch (hydrateErr) {
+      console.warn('[DB] Case hydration failed:', hydrateErr.message);
+    }
+  } catch (dbErr) {
+    console.warn('[DB] SQLite initialization failed — running with in-memory store only.', dbErr.message);
+  }
+
   USERS = await seedUsers();
   mountRoutes();
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n[GuardianLink Lite] Server running on port ${PORT}`);
-    console.log(`  Health:  http://localhost:${PORT}/health`);
-    console.log(`  Login:   POST http://localhost:${PORT}/login`);
+    console.log(`\n[GuardianLink] Server running on port ${PORT}`);
+    console.log(`  Health:    GET  http://localhost:${PORT}/health`);
+    console.log(`  Login:     POST http://localhost:${PORT}/login`);
+    console.log(`  Child PWA:      http://localhost:${PORT}/pwa/index.html`);
+    console.log(`  Pro Portal:     http://localhost:${PORT}/portal/index.html`);
+    console.log(`  Web App:        http://localhost:${PORT}/app/`);
     if (isDev) {
       console.log('\n  ⚠️  Development mode – demo accounts active:');
-      console.log('     Parent:  username=parent  password=Parent123!');
-      console.log('     Child:   username=child   password=Child123!');
-      console.log('  These credentials are for development only.\n');
+      console.log('     Parent:     username=parent      password=Parent123!');
+      console.log('     Child:      username=child       password=Child123!');
+      console.log('     Caseworker: username=caseworker   password=Caseworker123!');
+      console.log('     Teacher:    username=teacher      password=Teacher123!');
+      console.log('\n  ⚠️  WireMock stub: run "node wiremock/mock-server.js" for referral simulation');
+      console.log('  These credentials are for development only. NEVER use in production.\n');
     }
   });
 }
@@ -257,4 +406,9 @@ module.exports = {
   getEvidence: () => EVIDENCE,
   getOrgs: () => ORGS,
   getDemoRequests: () => DEMO_REQUESTS,
+  getCuriosity: () => CURIOSITY,
+  getLessons: () => LESSONS,
+  getQuizResults: () => QUIZ_RESULTS,
+  getLessonAssignments: () => LESSON_ASSIGNMENTS,
+  getSubscriptions: () => SUBSCRIPTIONS,
 };

@@ -10,6 +10,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { requireAuth } = require('../middleware/auth');
 const { validateUrl, isValidDecision } = require('../utils/validate');
+const { sendPushNotification, getUserFcmToken } = require('../firebase-admin');
 
 const router = express.Router();
 
@@ -85,6 +86,19 @@ function createRequestsRouter(requests, RELATIONSHIPS, io) {
       io.to(`user:${childId}`).emit('request:new', { request });
     }
 
+    // Send FCM push notification to parent (safe — not confidential)
+    // ⚠️ NEVER send confidential report information via push notifications.
+    // This notification only tells the parent that their child requested website access.
+    getUserFcmToken(parentId).then(fcmToken => {
+      if (fcmToken) {
+        sendPushNotification(fcmToken,
+          'Website Access Request',
+          'Your child has requested access to a website. Tap to review.',
+          { type: 'access_request', requestId: request.id }
+        );
+      }
+    }).catch(() => {}); // Fire-and-forget — never block on push
+
     return res.status(201).json({ request });
   });
 
@@ -133,6 +147,18 @@ function createRequestsRouter(requests, RELATIONSHIPS, io) {
       io.to(`user:${parentId}`).emit('request:updated', { request });
       io.to(`user:${request.childId}`).emit('request:updated', { request });
     }
+
+    // Send FCM push notification to child (safe — not confidential)
+    getUserFcmToken(request.childId).then(fcmToken => {
+      if (fcmToken) {
+        const title = decision === 'approved' ? 'Request Approved' : 'Request Denied';
+        const body = decision === 'approved'
+          ? 'Your parent approved your website access request.'
+          : 'Your parent did not approve your website access request.';
+        sendPushNotification(fcmToken, title, body,
+          { type: 'request_decision', requestId: request.id, decision });
+      }
+    }).catch(() => {}); // Fire-and-forget — never block on push
 
     return res.status(200).json({ request });
   });

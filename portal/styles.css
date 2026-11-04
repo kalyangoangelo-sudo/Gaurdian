@@ -1,0 +1,214 @@
+/**
+ * styles.css — GuardianLink Professional Portal styling
+ *
+ * Clean, professional design for caseworkers.
+ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy: #1B2A4A;
+  --navy-light: #2A3D63;
+  --teal: #00B4D8;
+  --teal-dark: #0096C7;
+  --white: #FFFFFF;
+  --cream: #F5F7FA;
+  --gray: #6B7280;
+  --gray-light: #E5E7EB;
+  --red: #E63946;
+  --red-light: #FFE5E7;
+  --green: #2A9D8F;
+  --green-light: #D8F3DC;
+  --amber: #F4A261;
+  --amber-light: #FFF4E0;
+  --radius: 8px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body { font-family: var(--font); background: var(--cream); color: var(--navy); line-height: 1.5; min-height: 100vh; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ─── Login ───────────────────────────────────────────────────── */
+.login-container { max-width: 420px; margin: 80px auto; padding: 40px 20px; }
+.login-brand { text-align: center; margin-bottom: 32px; }
+.login-shield { font-size: 56px; }
+.login-brand h1 { font-size: 28px; font-weight: 700; margin-top: 8px; }
+.login-subtitle { font-size: 14px; color: var(--teal-dark); font-weight: 600; margin-top: 4px; }
+.login-form { background: var(--white); padding: 32px; border-radius: 12px; box-shadow: var(--shadow); }
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+input[type="text"], input[type="password"], textarea, select {
+  width: 100%; padding: 12px; border: 1px solid var(--gray-light); border-radius: var(--radius);
+  font-size: 14px; font-family: var(--font); color: var(--navy); background: var(--white);
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--teal); }
+.btn-primary {
+  width: 100%; padding: 14px; background: var(--navy); color: var(--white); border: none;
+  border-radius: var(--radius); font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.2s;
+}
+.btn-primary:hover { background: var(--navy-light); }
+.login-hint { margin-top: 16px; text-align: center; font-size: 13px; color: var(--gray); }
+.login-hint code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+.error-msg { margin-top: 12px; padding: 10px 14px; background: var(--red-light); border-radius: var(--radius); color: var(--red); font-size: 13px; font-weight: 600; }
+
+/* ─── Header ──────────────────────────────────────────────────── */
+.portal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px; background: var(--navy); color: var(--white);
+}
+.portal-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; }
+.portal-user { display: flex; align-items: center; gap: 12px; }
+#userBadge { background: var(--teal); color: var(--white); padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; }
+.btn-ghost { background: none; border: 1px solid var(--gray-light); color: var(--white); padding: 6px 14px; border-radius: var(--radius); font-size: 13px; cursor: pointer; }
+.btn-ghost:hover { border-color: var(--teal); }
+
+/* ─── Dashboard Layout ───────────────────────────────────────── */
+.dashboard-layout { display: flex; min-height: calc(100vh - 52px); }
+.queue-panel { flex: 1; max-width: 520px; border-right: 1px solid var(--gray-light); overflow-y: auto; padding: 16px; }
+.detail-panel { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* ─── Queue Header ───────────────────────────────────────────── */
+.queue-header h2 { font-size: 18px; margin-bottom: 12px; }
+.queue-filters { display: flex; gap: 8px; margin-bottom: 16px; }
+.queue-filters select { padding: 8px; font-size: 13px; max-width: 140px; }
+.btn-icon { background: none; border: 1px solid var(--gray-light); border-radius: var(--radius); padding: 8px 12px; cursor: pointer; font-size: 16px; color: var(--navy); }
+.btn-icon:hover { border-color: var(--teal); }
+
+/* ─── Case List ───────────────────────────────────────────────── */
+.case-list { display: flex; flex-direction: column; gap: 8px; }
+.loading, .empty { padding: 24px; text-align: center; color: var(--gray); font-size: 14px; }
+
+.case-card {
+  padding: 14px; background: var(--white); border: 1px solid var(--gray-light);
+  border-radius: var(--radius); cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.case-card:hover { border-color: var(--teal); box-shadow: var(--shadow); }
+.case-card.selected { border-color: var(--teal); background: #E3F7FB; }
+
+.case-card-row1 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.case-ref { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; color: var(--navy); }
+.case-category { font-size: 12px; color: var(--gray); }
+
+.priority-badge {
+  padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;
+}
+.priority-CRITICAL { background: var(--red); color: var(--white); }
+.priority-HIGH { background: var(--amber); color: var(--white); }
+.priority-STANDARD { background: var(--gray-light); color: var(--gray); }
+
+.status-badge {
+  padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;
+  background: var(--cream); color: var(--navy); border: 1px solid var(--gray-light);
+}
+.status-Submitted { background: var(--teal-light, #48CAE4); color: var(--navy); }
+.status-Referred { background: var(--amber-light); color: var(--navy); }
+.status-Resolved { background: var(--green-light); color: var(--green); }
+.status-Closed { background: var(--gray-light); color: var(--gray); }
+
+.case-card-row2 { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--gray); }
+.case-date { font-size: 11px; }
+.ai-flag { font-size: 11px; color: var(--red); font-weight: 600; }
+
+/* ─── Case Detail ─────────────────────────────────────────────── */
+.detail-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.detail-meta { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; color: var(--gray); }
+
+.detail-section { background: var(--white); border: 1px solid var(--gray-light); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+.detail-section h3 { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.detail-section p, .detail-section .detail-text { font-size: 14px; color: var(--navy); white-space: pre-wrap; }
+.redacted { color: var(--gray); font-style: italic; }
+
+.ai-assessment { background: var(--cream); border-left: 3px solid var(--teal); padding: 12px; margin-top: 8px; border-radius: 0 var(--radius) var(--radius) 0; }
+.ai-assessment .ai-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.ai-assessment .ai-label { color: var(--gray); }
+.ai-assessment .ai-value { font-weight: 600; color: var(--navy); }
+
+/* ─── Action Buttons ──────────────────────────────────────────── */
+.action-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.btn-action {
+  padding: 8px 16px; border: 1px solid var(--gray-light); border-radius: var(--radius);
+  background: var(--white); color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: border-color 0.2s;
+}
+.btn-action:hover { border-color: var(--teal); }
+.btn-action.active { background: var(--teal); color: var(--white); border-color: var(--teal); }
+
+/* ─── Action Panel (inline forms) ────────────────────────────── */
+.action-panel { background: var(--white); border: 1px solid var(--gray-light); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+.action-panel label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px; }
+.action-panel textarea { width: 100%; min-height: 80px; resize: vertical; }
+.action-panel select { width: auto; max-width: 100%; margin-bottom: 12px; }
+.action-panel .btn-primary { width: auto; padding: 10px 20px; font-size: 14px; }
+
+/* ─── Audit Trail ─────────────────────────────────────────────── */
+.audit-entry { padding: 8px 0; border-bottom: 1px solid var(--gray-light); font-size: 13px; }
+.audit-entry:last-child { border-bottom: none; }
+.audit-action { font-weight: 600; color: var(--navy); }
+.audit-time { color: var(--gray); font-size: 11px; }
+.audit-meta { color: var(--gray); font-size: 12px; }
+
+/* ─── Referral ────────────────────────────────────────────────── */
+.referral-card { background: var(--amber-light); border: 1px solid var(--amber); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+.referral-simulated { font-size: 12px; color: var(--amber); font-weight: 600; margin-top: 4px; }
+
+/* ─── Notes ───────────────────────────────────────────────────── */
+.note-entry { padding: 8px 0; border-bottom: 1px solid var(--gray-light); }
+.note-text { font-size: 14px; color: var(--navy); }
+.note-meta { font-size: 11px; color: var(--gray); }
+
+/* ─── Response Templates ──────────────────────────────────────── */
+.response-template { padding: 10px; border: 1px solid var(--gray-light); border-radius: var(--radius); margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
+.response-template:hover { border-color: var(--teal); }
+.response-template.selected { border-color: var(--teal); background: #E3F7FB; }
+.response-template-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+.response-template-body { font-size: 13px; color: var(--gray); }
+
+/* ─── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboard-layout { flex-direction: column; }
+  .queue-panel { max-width: none; border-right: none; border-bottom: 1px solid var(--gray-light); max-height: 40vh; }
+  .detail-panel { padding: 16px; }
+}
+
+/* ─── Portal Navigation ───────────────────────────────────────── */
+.portal-nav {
+  display: flex; gap: 4px; padding: 0 24px; background: var(--navy);
+  border-bottom: 1px solid var(--navy-light);
+}
+.nav-tab {
+  background: none; border: none; color: var(--white); opacity: 0.6;
+  padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: opacity 0.2s, border-color 0.2s;
+}
+.nav-tab:hover { opacity: 1; }
+.nav-tab.active { opacity: 1; border-bottom-color: var(--teal); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ─── Curiosity cards ─────────────────────────────────────────── */
+.curiosity-card {
+  padding: 14px; background: var(--white); border: 1px solid var(--gray-light);
+  border-radius: var(--radius); margin-bottom: 8px;
+}
+.curiosity-card.flagged { border-left: 3px solid var(--red); }
+.curiosity-card .q-text { font-size: 14px; color: var(--navy); margin-bottom: 4px; }
+.curiosity-card .q-meta { font-size: 12px; color: var(--gray); }
+.curiosity-card .q-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* ─── Lesson items ────────────────────────────────────────────── */
+.lesson-item {
+  padding: 12px; background: var(--white); border: 1px solid var(--gray-light);
+  border-radius: var(--radius); margin-bottom: 8px;
+}
+.lesson-item h4 { font-size: 14px; color: var(--navy); }
+.lesson-item p { font-size: 13px; color: var(--gray); }
+
+/* ─── Org cards ───────────────────────────────────────────────── */
+.org-card {
+  padding: 12px; background: var(--white); border: 1px solid var(--gray-light);
+  border-radius: var(--radius); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+}
+.org-card .org-name { font-weight: 700; color: var(--navy); font-size: 14px; }
+.org-card .org-plan { font-size: 12px; color: var(--teal-dark); }

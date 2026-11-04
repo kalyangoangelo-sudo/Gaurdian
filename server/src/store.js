@@ -176,6 +176,51 @@ function createDemoRequestsStore() {
   return new Map();
 }
 
+// ─── Curiosity Corner Store ──────────────────────────────────────
+//
+// Maps id → { id, question, category, status: 'pending'|'reviewed'|'answered',
+//             approvedResponse, reviewedBy, reviewedAt, createdAt,
+//             isSeriousFlag, questionRef }
+
+function createCuriosityStore() {
+  return new Map();
+}
+
+// ─── Lessons Store ───────────────────────────────────────────────
+//
+// Maps id → { id, title, titleLg, description, descriptionLg, content, contentLg,
+//             ageBand: '6-9'|'10-13'|'all', category, videoUrl, createdAt,
+//             createdBy, order }
+
+function createLessonsStore() {
+  return new Map();
+}
+
+// ─── Quiz Results Store ──────────────────────────────────────────
+//
+// Maps id → { id, childId, lessonId, score, totalQuestions, passed, completedAt }
+
+function createQuizResultsStore() {
+  return new Map();
+}
+
+// ─── Lesson Assignments Store ────────────────────────────────────
+//
+// Maps id → { id, teacherId, lessonId, classId, assignedAt, dueDate }
+
+function createLessonAssignmentsStore() {
+  return new Map();
+}
+
+// ─── Subscriptions Store ─────────────────────────────────────────
+//
+// Maps orgId → { id, orgId, plan, status: 'active'|'trial'|'past_due'|'cancelled',
+//                startDate, currentPeriodEnd, billingHistory[] }
+
+function createSubscriptionsStore() {
+  return new Map();
+}
+
 module.exports = {
   seedUsers,
   RELATIONSHIPS,
@@ -190,4 +235,9 @@ module.exports = {
   createEvidenceStore,
   createOrganizationsStore,
   createDemoRequestsStore,
+  createCuriosityStore,
+  createLessonsStore,
+  createQuizResultsStore,
+  createLessonAssignmentsStore,
+  createSubscriptionsStore,
 };
