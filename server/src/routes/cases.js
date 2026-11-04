@@ -17,10 +17,10 @@
 'use strict';
 
 const express = require('express');
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { makeReferral } = require('../services/referralService');
 
 const VALID_PRIORITIES = ['CRITICAL', 'HIGH', 'STANDARD'];
 
@@ -33,14 +33,6 @@ const VALID_STATUSES = [
   'Follow-up Pending',
   'Resolved',
   'Closed',
-];
-
-const SIMULATED_SERVICES = [
-  'Uganda Police Child Protection Unit',
-  'UNICEF Uganda',
-  'Save the Children Uganda',
-  'Ministry of Gender Uganda',
-  'Childline Uganda 116',
 ];
 
 function createCasesRouter(CASES, USERS, io) {
@@ -179,33 +171,19 @@ function createCasesRouter(CASES, USERS, io) {
   // ── POST /cases/:id/refer ──────────────────────────────────────────────────
   router.post('/:id/refer', requireAuth, requireRole('caseworker'), async (req, res, next) => {
     try {
-      const c = CASES.get(req.params.id);
-      if (!c) return res.status(404).json({ error: 'Case not found.' });
+      const caseObj = CASES.get(req.params.id);
+      if (!caseObj) return res.status(404).json({ error: 'Case not found.' });
 
-      const { service } = req.body;
-      if (!SIMULATED_SERVICES.includes(service)) {
-        return res.status(400).json({
-          error: `service must be one of: ${SIMULATED_SERVICES.join(', ')}`,
-        });
-      }
+      const referral = await makeReferral(caseObj.id, req.body.service);
 
-      // Simulated 200ms delay
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const referralId = 'REF-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-      const now = new Date().toISOString();
-      const referral = {
-        referralId,
-        service,
-        status: 'SIMULATED',
-        acknowledgment: 'SIMULATED — no actual referral was made',
-        referredAt: now,
-        referredBy: req.user.id,
-      };
-
-      c.referrals.push(referral);
-      c.updatedAt = now;
-      c.auditTrail.push({ action: 'referred', by: req.user.id, service, referralId, at: now });
+      caseObj.referrals.push(referral);
+      caseObj.auditTrail.push({
+        action: 'referred',
+        by: req.user.username,
+        service: referral.service,
+        referralId: referral.referralId,
+        at: new Date().toISOString(),
+      });
 
       return res.status(200).json(referral);
     } catch (err) {
