@@ -96,7 +96,13 @@ function createCasesRouter(CASES, USERS, io) {
         status: c.status,
         priority: c.priority,
         humanPriority: c.humanPriority,
-        aiResult: c.aiResult ? { summary: c.aiResult.summary || null } : null,
+        aiResult: c.aiResult
+          ? {
+              suggestedPriority: c.aiResult.suggestedPriority || null,
+              requiresHumanReview: c.aiResult.requiresHumanReview || false,
+              summary: c.aiResult.summary || null,
+            }
+          : null,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
         submittedByRole: c.submittedByRole,
@@ -110,7 +116,10 @@ function createCasesRouter(CASES, USERS, io) {
   router.get('/:id', requireAuth, requireRole('caseworker'), (req, res) => {
     const c = CASES.get(req.params.id);
     if (!c) return res.status(404).json({ error: 'Case not found.' });
-    return res.status(200).json(c);
+    return res.status(200).json({
+      ...c,
+      hasTokenizedData: !!c.encryptedTokenMap,
+    });
   });
 
   // ── PUT /cases/:id/assess ──────────────────────────────────────────────────

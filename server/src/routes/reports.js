@@ -18,6 +18,8 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { runClassifier } = require('../services/aiClassifier');
+const { tokenize } = require('../services/tokenizer');
 
 const VALID_CATEGORIES = [
   'Cyberbullying',
@@ -42,23 +44,31 @@ function generateRecoverySecret() {
 
 /**
  * Shared case-creation logic.
+ * Tokenizes PII in description and runs AI classification.
  */
 async function createCase(CASES, { category, description, safeToContact, anonymous, childId, submittedByRole, recoverySecretHash }) {
   const id = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
   const caseRef = generateCaseRef();
   const now = new Date().toISOString();
 
+  // Tokenize PII
+  const { tokenized, encryptedTokenMap } = tokenize(description);
+
+  // AI classification
+  const aiResult = runClassifier({ description, category });
+
   const newCase = {
     id,
     caseRef,
     category,
-    description,
+    description: tokenized,
+    encryptedTokenMap,
     safeToContact: Boolean(safeToContact),
     anonymous,
     childId,
     status: 'Submitted',
-    aiResult: null,
-    priority: 'STANDARD',
+    aiResult,
+    priority: aiResult.suggestedPriority === 'CRITICAL' ? 'CRITICAL' : 'STANDARD',
     humanPriority: null,
     notes: [],
     referrals: [],
