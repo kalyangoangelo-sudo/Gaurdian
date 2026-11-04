@@ -1,4 +1,4 @@
-# GuardianLink Lite — Feature Status
+# GuardianLink — Feature Status
 
 > **Legend**
 >
@@ -12,15 +12,16 @@
 
 ---
 
-## 1. Authentication & Accounts
+## 1. Auth & Accounts
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 1 | **JWT authentication** (login → signed token, 24 h expiry) | ✅ WORKING AND TESTED | `POST /login` issues JWT; `api.test.js` covers login, bad-creds, rate-limit |
-| 2 | **bcrypt password hashing** (10 rounds) | ✅ WORKING AND TESTED | All passwords stored as bcrypt hashes in the in-memory user store |
-| 3 | **Role-based routing** (child → child dashboard, parent → parent dashboard) | ✅ WORKING AND TESTED | `AuthContext` reads `role` from JWT payload; `expo-router` guards enforce it |
-| 4 | **Server-side role authorization** (parent cannot act as child, and vice versa) | ✅ WORKING AND TESTED | `requireRole()` middleware enforced on every protected route |
-| 5 | **Firebase Email/Password Auth** | 🟠 PARTIALLY IMPLEMENTED | SDK wired (`firebaseAuth.ts`); demo accounts exist in Firebase project; primary demo flow uses Express JWT, not Firebase Auth directly |
+| 1 | JWT authentication — `POST /login`, signed token, 24 h expiry | ✅ WORKING AND TESTED | Covered by `api.test.js` (login, bad-creds, rate-limit) |
+| 2 | bcrypt password hashing (10 rounds) | ✅ WORKING AND TESTED | All passwords stored as bcrypt hashes in in-memory user store |
+| 3 | Role-based routing (child → child dashboard, parent → parent dashboard, teacher → teacher report) | ✅ WORKING AND TESTED | `AuthContext.tsx` reads `role` from JWT; `expo-router` guards enforce it |
+| 4 | Server-side role authorization — `requireRole()` middleware on every protected route | ✅ WORKING AND TESTED | Applied to all non-public endpoints |
+| 5 | Caseworker login — `POST /auth/caseworker/login` | ✅ WORKING AND TESTED | Separate login endpoint in `cases.js`; returns `{ token, role: 'caseworker' }` |
+| 6 | Firebase Email/Password Auth | 🟠 PARTIALLY IMPLEMENTED | SDK wired (`firebaseAuth.ts`); primary demo flow uses Express JWT; Firebase used for FCM token storage only |
 
 ---
 
@@ -28,8 +29,8 @@
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 6 | **Dynamic parent-child pairing via one-time 6-digit code** | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `POST /pair/generate` (parent) + `POST /pair/confirm` (child); code expires in 30 min; in-memory only — pair lost on server restart |
-| 7 | **Pairing code UI (parent generates, child enters)** | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentManageChildScreen` displays code; `ChildDashboard` has entry UI; end-to-end path works on LAN |
+| 7 | Dynamic parent-child pairing via one-time 6-digit code | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `POST /pair/generate` + `POST /pair/confirm`; 30-min expiry; in-memory only |
+| 8 | Pairing code UI (parent generates, child enters) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentManageChildScreen` + `ChildDashboard` entry UI; works on LAN |
 
 ---
 
@@ -37,13 +38,13 @@
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 8 | **Domain allowlist** (trusted educational domains — e.g. khanacademy.org, wikipedia.org) | ✅ WORKING AND TESTED | `filterEngine.ts` ALLOWLIST rule; `filterEngine.testcases.ts` covers it |
-| 9 | **Domain blocklist** (known harmful domains) | ✅ WORKING AND TESTED | `filterEngine.ts` BLOCKLIST_DOMAIN rule with category mapping |
-| 10 | **Keyword filtering** (adult, violence, drugs, gambling) with word-boundary matching | ✅ WORKING AND TESTED | 4 keyword rule groups; `matchesPhrase` uses word-boundary regex; test cases confirm |
-| 11 | **Unicode normalization & diacritic stripping** (obfuscation defence) | ✅ WORKING AND TESTED | `normalize()` in `filterEngine.ts` — NFC → NFD → strip U+0300–U+036F |
-| 12 | **Educational exception downgrade** ("breast cancer" → REVIEW instead of BLOCK) | ✅ WORKING AND TESTED | `EDUCATIONAL_EXCEPTION_PHRASES` list; test case in `filterEngine.testcases.ts` |
-| 13 | **Policy-level custom blocked keywords** (parent configures, child gets blocked) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `PUT /policy/:childId` persists keywords; `filterContent(input, policy)` applies them; policy survives until server restart |
-| 14 | **Content Restrictions UI** (parent adds/removes keywords, trusted domains) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentContentRestrictionsScreen` — saves to server via API |
+| 9 | Domain allowlist (educational domains) | ✅ WORKING AND TESTED | `filterEngine.ts` ALLOWLIST rule; test cases pass |
+| 10 | Domain blocklist with category mapping | ✅ WORKING AND TESTED | `filterEngine.ts` BLOCKLIST_DOMAIN rule |
+| 11 | Keyword filtering — adult, violence, drugs, gambling — word-boundary regex | ✅ WORKING AND TESTED | 4 keyword rule groups; `matchesPhrase` uses `\b` regex |
+| 12 | Unicode normalization & diacritic stripping (obfuscation defence) | ✅ WORKING AND TESTED | `normalize()` — NFC → NFD → strip U+0300–U+036F |
+| 13 | Educational exception downgrade ("breast cancer" → REVIEW not BLOCK) | ✅ WORKING AND TESTED | `EDUCATIONAL_EXCEPTION_PHRASES`; test covered |
+| 14 | Policy-level custom blocked keywords | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `PUT /policy/:childId`; survives until server restart |
+| 15 | Content Restrictions UI | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentContentRestrictionsScreen` saves to server via API |
 
 ---
 
@@ -51,88 +52,168 @@
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 15 | **Child submits SafeSignal report** (category + description + optional pasted text) | ✅ WORKING AND TESTED | `POST /safesignal`; `ChildSafeSignalScreen` wired to API; server emits `safesignal:new` via Socket.IO |
-| 16 | **Safety classifier** (rule-based detection: grooming indicators, bullying, threats) | ✅ WORKING AND TESTED | `safetyClassifier.ts` — 18 named rules (G001–G010, B001–B005, T001–T004); uncertainty levels; tested in `filterEngine.testcases.ts` |
-| 17 | **SafeSignal triage** (combines classifier + filter → risk level + recommended actions) | ✅ WORKING AND TESTED | `safeSignalTriage.ts` — HIGH/MEDIUM/LOW derivation with `requiresImmediateAttention` flag |
-| 18 | **Parent views triage result** (GROOMING_INDICATORS label, risk level, recommended actions) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentSafeSignalReviewScreen` — fetches reports from `GET /safesignal/:parentId`; triage runs client-side on the text |
-| 19 | **Parent acknowledges report** | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `PUT /safesignal/:id/acknowledge` — sets status, records action; real-time Socket.IO notification to parent |
-| 20 | **Referral status / external agency referral** | ❌ NOT IMPLEMENTED | Referral workflow to external agencies (NCMEC, law enforcement) is absent from the codebase |
+| 16 | Child submits SafeSignal report (category + description + optional pasted text) | ✅ WORKING AND TESTED | `POST /safesignal`; `ChildSafeSignalScreen`; Socket.IO `safesignal:new` emitted |
+| 17 | Safety classifier — 18 named rules (G001–G010, B001–B005, T001–T004) | ✅ WORKING AND TESTED | `safetyClassifier.ts`; `filterEngine.testcases.ts` covers it |
+| 18 | SafeSignal triage — HIGH/MEDIUM/LOW derivation + `requiresImmediateAttention` | ✅ WORKING AND TESTED | `safeSignalTriage.ts` |
+| 19 | Parent views triage result (GROOMING_INDICATORS, risk level, recommended actions) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentSafeSignalReviewScreen` — triage runs client-side on fetched report text |
+| 20 | Parent acknowledges report | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `PUT /safesignal/:id/acknowledge`; real-time Socket.IO to parent |
 
 ---
 
-## 5. Access Requests
+## 5. Confidential Reporting
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 21 | **Child submits URL access request** | ✅ WORKING AND TESTED | `POST /requests`; duplicate guard; `api.test.js` covers it |
-| 22 | **Parent approves / denies request** | ✅ WORKING AND TESTED | `POST /requests/:id/decision`; server-side guard against double-decision (409); test covered |
-| 23 | **Real-time request sync** (Socket.IO — child sees decision instantly) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Socket.IO rooms `user:<id>`; `request:new` + `request:updated` events; works on LAN demo |
-| 24 | **Time-limited access approvals** | ❌ NOT IMPLEMENTED | Approvals are permanent until re-requested; expiry logic not implemented |
+| 21 | Anonymous public report — no login required | ✅ WORKING AND TESTED | `POST /reports/anonymous`; returns `caseRef` + `recoverySecret` shown once |
+| 22 | AI classification on submission — `aiClassifier.js` + `tokenizer.js` | ✅ WORKING AND TESTED | `runClassifier()` called in `reports.js` `createCase()`; PII tokenized before storage |
+| 23 | Child authenticated report | ✅ WORKING AND TESTED | `POST /reports/authenticated` (`requireRole('child')`) |
+| 24 | Teacher-assisted report | ✅ WORKING AND TESTED | `POST /reports/assisted` (`requireRole('teacher')`); `TeacherAssistedReportScreen` |
+| 25 | Case status lookup via recoverySecret | ✅ WORKING AND TESTED | `POST /reports/check-status`; bcrypt compare; `CaseStatusScreen` |
+| 26 | PublicReportScreen — no-auth UI, category picker, submit, modal shows caseRef + secret once | ✅ WORKING AND TESTED | `PublicReportScreen.tsx` with clipboard copy |
 
 ---
 
-## 6. Removal Request
+## 6. Case Management
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 25 | **Child requests GuardianLink removal** | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ChildRemovalRequestScreen` → `POST /removal`; route exists in `server/src/routes/removal.js` |
-| 26 | **Parent reviews pending removal request** | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentRemovalRequestsScreen` fetches and displays pending removal requests |
+| 27 | List all cases (caseworker) | ✅ WORKING AND TESTED | `GET /cases` — sorted by `createdAt` desc; AI summary included |
+| 28 | View full case detail | ✅ WORKING AND TESTED | `GET /cases/:id` — `CaseDetailScreen.tsx` |
+| 29 | Set human priority override (`CRITICAL`, `HIGH`, `STANDARD`) | ✅ WORKING AND TESTED | `PUT /cases/:id/assess`; `CaseworkerDashboardScreen` |
+| 30 | Add internal caseworker note | ✅ WORKING AND TESTED | `PUT /cases/:id/note` |
+| 31 | Update case status (Submitted → Closed, 8 valid values) | ✅ WORKING AND TESTED | `PUT /cases/:id/status` |
+| 32 | View immutable audit trail | ✅ WORKING AND TESTED | `GET /cases/:id/audit` |
+| 33 | CaseworkerDashboardScreen + CaseworkerLoginScreen | ✅ WORKING AND TESTED | `CaseworkerDashboardScreen.tsx`, `CaseworkerLoginScreen.tsx` |
 
 ---
 
-## 7. Heartbeat & Device Security
+## 7. Evidence Integrity
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 27 | **Child heartbeat** (POST /heartbeat every 60 s while app is active) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `heartbeatService.ts` — interval fires while app is in foreground/background; `server/src/routes/heartbeat.js` records last-seen; OFFLINE shown after 5 min of missed beats |
-| 28 | **OS-level uninstall protection / Device Admin** | ❌ NOT IMPLEMENTED | No Android Device Policy Controller or Device Admin Receiver is implemented; protection is app-level only |
+| 34 | Upload evidence file (image/PDF/text, max 5 MB) | ✅ WORKING AND TESTED | `POST /evidence/:caseId`; multer memory storage; SHA-256 computed on ingest |
+| 35 | SHA-256 hash stored on upload | ✅ WORKING AND TESTED | `evidence.js` stores `sha256` alongside base64 data |
+| 36 | Integrity verification — `GET /evidence/verify/:evidenceId` → `VERIFIED` / `TAMPERED` | ✅ WORKING AND TESTED | Recomputes hash at query time; compares against stored value |
+| 37 | List evidence for a case with inline integrity status | ✅ WORKING AND TESTED | `GET /evidence/:caseId` returns `integrityStatus` per item |
+| 38 | EvidenceScreen (mobile upload + verification UI) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `EvidenceScreen.tsx`; calls upload and verify endpoints |
 
 ---
 
-## 8. Push Notifications
+## 8. Referral System
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 29 | **FCM push notifications** | 🟠 PARTIALLY IMPLEMENTED | `notifications.ts` requests permission, retrieves FCM token, and stores it in Firestore (`saveFcmToken`); foreground messages show an Alert; server does **not** send FCM messages — only Socket.IO events are emitted; background/quit delivery not triggered by the server |
+| 39 | Simulated referral — `POST /cases/:id/refer` | 🔵 SIMULATED | `referralService.js` returns `{ referralId, service, status: 'SENT', simulated: true }`; no live agency API called |
+| 40 | Referral stored on case + audit trail appended | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `caseObj.referrals.push(referral)` + audit entry; displayed in `CaseDetailScreen` |
 
 ---
 
-## 9. Safe Browser
+## 9. Access Requests
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 30 | **In-app safe browser / WebView filtering demo** | 🔵 SIMULATED | `ParentContentRestrictionsScreen` and `ChildRequestAccessScreen` demonstrate the filter engine with typed URLs; no actual WebView rendering or OS-level browser interception is implemented |
+| 41 | Child submits URL access request | ✅ WORKING AND TESTED | `POST /requests`; duplicate guard; `api.test.js` covers it |
+| 42 | Parent approves / denies request | ✅ WORKING AND TESTED | `POST /requests/:id/decision`; 409 on double-decision; test covered |
+| 43 | Real-time request sync via Socket.IO | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `request:new` + `request:updated` events; works on LAN |
+| 44 | Time-limited access approvals | ❌ NOT IMPLEMENTED | Approvals are permanent; `expiresAt` expiry logic not implemented |
 
 ---
 
-## 10. Navigation & Role Selection
+## 10. Removal Request
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 31 | **Role-selection screen on first launch** | ✅ WORKING AND TESTED | `LoginScreen.tsx` presents role selector; `index.tsx` redirects to login for unauthenticated users |
-| 32 | **Expo Router file-based navigation** (child and parent tab groups) | ✅ WORKING AND TESTED | `app/(child)/` and `app/(parent)/` groups with tab layouts; all screens reachable |
+| 45 | Child requests GuardianLink removal | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ChildRemovalRequestScreen` → `POST /removal-request` |
+| 46 | Parent reviews pending removal requests | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `ParentRemovalRequestsScreen` fetches and displays pending requests |
 
 ---
 
-## 11. APK Build
+## 11. Heartbeat
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 33 | **Android APK build** via EAS Build | 🟠 PARTIALLY IMPLEMENTED | `eas build --platform android --profile development` configured in `package.json`; requires EAS account, `eas.json`, and `google-services.json` in place |
+| 47 | Child heartbeat (POST /heartbeat every 60 s while app is active) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `heartbeatService.ts`; `heartbeat.js` records `lastSeen`; OFFLINE after 5 min |
+| 48 | OS-level uninstall protection / Device Admin | ❌ NOT IMPLEMENTED | No Android Device Policy Controller; protection is app-level only |
 
 ---
 
----
-
-## 12. Teacher Role & Institutional Access (Stage 8)
+## 12. Localization
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 34 | **Teacher account in server store** (`username='teacher'`, `role='teacher'`, `Teacher123!`) | ✅ WORKING AND TESTED | Present in `server/src/store.js` `seedUsers()`; covered by existing server tests |
-| 35 | **`POST /reports/assisted` — teacher-only report endpoint** | ✅ WORKING AND TESTED | `requireAuth + requireRole('teacher')`; `submittedByRole: 'teacher'`; returns `{caseRef, recoverySecret}`; no GET route for teacher |
-| 36 | **`TeacherAssistedReportScreen`** — institutional report UI | ✅ WORKING AND TESTED | Persistent disclaimer banner; category picker; description `TextInput`; `safeToContact` switch; submits with `Authorization: Bearer <token>` read from `auth_token` AsyncStorage key; success modal shows `caseRef` + `recoverySecret` with copy; never stores credentials persistently |
-| 37 | **Teacher routing** — role=teacher navigates to `/teacher-report` | ✅ WORKING AND TESTED | Handled in `AuthContext.tsx` (login) and `app/index.tsx` (session restore); `_layout.tsx` registers the screen |
-| 38 | **`UserRole` type extended** with `'teacher'` and `'caseworker'` | ✅ WORKING AND TESTED | `mobile/src/types/index.ts` updated; TypeScript 0 errors |
+| 49 | English + Luganda (lg) localization | 🟡 WORKING IN CONTROLLED DEMONSTRATION | `mobile/src/localization/en.ts` + `lg.ts`; `useTranslation` hook; toggle in `PublicReportScreen` and `CaseStatusScreen` |
+| 50 | Full app-wide string coverage | 🟠 PARTIALLY IMPLEMENTED | Localization applied to reporting screens; parent/child dashboard strings are not yet translated |
+
+---
+
+## 13. Mobile Screens
+
+| # | Screen | Status | Notes |
+|---|---|---|---|
+| 51 | `LoginScreen` | ✅ WORKING AND TESTED | Role selector; Firebase + Express paths |
+| 52 | `ChildDashboard` | ✅ WORKING AND TESTED | Home, heartbeat, pairing entry |
+| 53 | `ChildProtectionStatusScreen` | ✅ WORKING AND TESTED | VERIFIED badge, last heartbeat |
+| 54 | `ChildRequestAccessScreen` | ✅ WORKING AND TESTED | URL filter check + access request submit |
+| 55 | `ChildSafeSignalScreen` | ✅ WORKING AND TESTED | SafeSignal report form |
+| 56 | `ChildRemovalRequestScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Removal request submit |
+| 57 | `ParentDashboard` | ✅ WORKING AND TESTED | Live counters from API |
+| 58 | `ParentManageChildScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Pairing code generate |
+| 59 | `ParentContentRestrictionsScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Policy management + filter test |
+| 60 | `ParentAccessRequestsScreen` | ✅ WORKING AND TESTED | Approve/deny requests |
+| 61 | `ParentSafeSignalReviewScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Triage display + acknowledge |
+| 62 | `ParentDeviceSecurityScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Heartbeat status |
+| 63 | `ParentRemovalRequestsScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Review removal requests |
+| 64 | `PublicReportScreen` | ✅ WORKING AND TESTED | No-auth report; caseRef + secret modal |
+| 65 | `CaseStatusScreen` | ✅ WORKING AND TESTED | recoverySecret lookup; bilingual |
+| 66 | `CaseworkerLoginScreen` | ✅ WORKING AND TESTED | Caseworker-specific login |
+| 67 | `CaseworkerDashboardScreen` | ✅ WORKING AND TESTED | Case list, assess, note, status |
+| 68 | `CaseDetailScreen` | ✅ WORKING AND TESTED | Full case view, referrals, audit |
+| 69 | `EvidenceScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Upload + verify SHA-256 |
+| 70 | `TeacherAssistedReportScreen` | ✅ WORKING AND TESTED | Institutional report with disclaimer banner |
+| 71 | `CommercialLandingScreen` | 🟡 WORKING IN CONTROLLED DEMONSTRATION | 4 plans, pricing, demo request form |
+| 72 | `SplashScreen` | ✅ WORKING AND TESTED | Branding splash on cold start |
+
+---
+
+## 14. Commercialization
+
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 73 | `CommercialLandingScreen` — 4 pricing tiers (Free, Family Premium, School Starter, NGO/Institutional) | 🟡 WORKING IN CONTROLLED DEMONSTRATION | Prices in UGX; plan cards with feature lists |
+| 74 | Demo request form — `POST /organizations/demo-request` | ✅ WORKING AND TESTED | No auth required; stores contact info server-side |
+| 75 | Organization registration — `POST /organizations/register` | ✅ WORKING AND TESTED | Plan validation; org stored in-memory |
+| 76 | Subscription info — `GET /organizations/:id/subscription` | ✅ WORKING AND TESTED | Returns `{ id, name, plan, status }` |
+| 77 | Feature gating / paywall enforcement | ❌ NOT IMPLEMENTED | Plan field stored but no `featureFlags.ts` gate implemented |
+| 78 | Billing / payment integration (Stripe, MTN MoMo) | ❌ NOT IMPLEMENTED | No payment processor connected |
+
+---
+
+## 15. Teacher Role
+
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 79 | Teacher account in server store (`username='teacher'`, `role='teacher'`, `Teacher123!`) | ✅ WORKING AND TESTED | Present in `store.js` `seedUsers()`; test-covered |
+| 80 | `POST /reports/assisted` — teacher-only report endpoint | ✅ WORKING AND TESTED | `requireRole('teacher')`; returns `{ caseRef, recoverySecret }` |
+| 81 | `TeacherAssistedReportScreen` — disclaimer + category picker + safeToContact switch | ✅ WORKING AND TESTED | Success modal shows caseRef + recoverySecret with copy; never stores credentials persistently |
+| 82 | Teacher routing — `role=teacher` navigates to `/teacher-report` | ✅ WORKING AND TESTED | Handled in `AuthContext.tsx` and `app/index.tsx` |
+
+---
+
+## 16. Push Notifications
+
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 83 | FCM token registration and storage in Firestore | 🟠 PARTIALLY IMPLEMENTED | `notifications.ts` requests permission, retrieves FCM token, calls `saveFcmToken`; foreground messages show an Alert |
+| 84 | Server-side FCM push delivery | ❌ NOT IMPLEMENTED | Server emits Socket.IO events only; no `admin.messaging().send()` calls; background/quit delivery not triggered |
+
+---
+
+## 17. APK Build
+
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 85 | Android APK build via EAS Build | 🟠 PARTIALLY IMPLEMENTED | `eas build --platform android --profile development` configured; requires EAS account, `eas.json`, `google-services.json` |
+| 86 | Local Gradle build (`./gradlew assembleDebug`) | 🟠 PARTIALLY IMPLEMENTED | `expo prebuild --clean` generates native project; Gradle build works if Android Studio and SDK are configured |
 
 ---
 
@@ -140,15 +221,13 @@
 
 | Status | Count |
 |---|---|
-| ✅ WORKING AND TESTED | 17 |
-| 🟡 WORKING IN CONTROLLED DEMONSTRATION | 12 |
+| ✅ WORKING AND TESTED | 39 |
+| 🟡 WORKING IN CONTROLLED DEMONSTRATION | 25 |
 | 🔵 SIMULATED | 1 |
-| 🟠 PARTIALLY IMPLEMENTED | 3 |
-| ❌ NOT IMPLEMENTED | 5 |
-| **Total** | **38** |
-
-> Features 1–30 map directly to the original brief. Features 31–38 cover navigation, role selection, APK build, and teacher institutional access (Stage 8).
+| 🟠 PARTIALLY IMPLEMENTED | 5 |
+| ❌ NOT IMPLEMENTED | 6 |
+| **Total** | **76** |
 
 ---
 
-*Generated by Stage 8 agent.*
+*Updated by Stage 9 documentation agent.*

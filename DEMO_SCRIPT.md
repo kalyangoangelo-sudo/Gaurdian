@@ -1,153 +1,162 @@
-# GuardianLink Lite — Hackathon Demo Script
+# GuardianLink — Demo Script
 
-**Total runtime: ~6 minutes 30 seconds**
+**Total runtime: ~10 minutes**
 
 > **Before the demo**
 > - Server running: `cd server && npm start` → `http://<LAN-IP>:3001`
 > - Mobile app open on device/emulator: `cd mobile && npx expo start`
-> - `SERVER_URL` in `src/config.ts` set to the correct LAN IP
-> - Two devices (or two emulators/tabs) ready: one logged in as parent, one as child
-> - Both demo accounts pre-confirmed as paired (run pair flow beforehand, or seed the relationship in `store.js`)
+> - `API_BASE_URL` in `mobile/src/config/api.ts` set to the correct LAN IP (emulator: `http://10.0.2.2:3001`)
+> - Screens to have open: app at the login/home screen
 
 ---
 
-## Scene 1 — Introduction (30 seconds)
+## Scenario A — Independent Reporting (no login required) ~2 min
 
-**What to show:** Role-selection screen on first launch.
-
-**Steps:**
-
-1. Open the app on a fresh device (or log out to reach the login screen).
-2. Point to the role selector — **Parent** and **Child** options displayed.
-3. Narrate: "One codebase, two distinct experiences. A parent always sees the control dashboard. A child sees an age-appropriate, transparent protection interface. Role is validated server-side — a child cannot switch into parent mode."
-
-**Key talking point:** The architecture separates concerns at the server layer, not just the UI. The JWT payload carries the role, and every privileged endpoint enforces it with `requireRole()` middleware.
-
----
-
-## Scene 2 — Parent Setup (60 seconds)
-
-**What to show:** Parent logs in, views the dashboard, generates a pairing code.
+**What to show:** A child, community member, or anyone can report abuse without creating an account.
 
 **Steps:**
 
-1. On the parent device, enter **kalyangoangelo@gmail.com** / **Parent123!** and tap **Login**.
-2. Dashboard loads — point out the live counters: connected children, pending requests, safety reports.
-3. Navigate to **Manage Children** → tap **Generate Pairing Code**.
-4. A 6-digit code appears on screen (e.g. `482 319`) with a 30-minute expiry countdown.
-5. Narrate: "The parent generates a one-time code. It is stored server-side with an expiry timestamp. The child enters it on their device to establish a cryptographically verified link."
-
-**Key talking point:** The pairing route (`POST /pair/generate`, `POST /pair/confirm`) enforces roles on both ends. A code cannot be confirmed by another parent.
-
----
-
-## Scene 3 — Child Enrollment (30 seconds)
-
-**What to show:** Child logs in, sees protection status, heartbeat active.
-
-**Steps:**
-
-1. On the child device, enter **kalyango.200@gmail.com** / **Child123!** and tap **Login**.
-2. Child dashboard shows the **Protection Status** screen — status badge reads **VERIFIED**.
-3. Point to the heartbeat indicator — "Last check-in: just now."
-4. Narrate: "The child app sends a heartbeat every 60 seconds. The parent dashboard reflects the device as ACTIVE. If the app is closed, the status moves to OFFLINE after 5 minutes of missed beats."
-
-**Honest label to state aloud:** "Heartbeat works while the app is running. OS-level persistence — surviving a force-stop or uninstall — is not implemented in this prototype."
-
----
-
-## Scene 4 — Content Filtering Demo (60 seconds)
-
-**What to show:** Parent content restrictions screen; educational exception in action.
-
-**Steps:**
-
-1. On the parent device, navigate to **Content Restrictions**.
-2. The screen shows the active policy: blocked categories and custom keywords.
-3. In the filter demo input, type `pornography` → tap **Check**. Result: **BLOCK — ADULT** (HIGH confidence).
-4. Clear the input. Type `breast cancer` → tap **Check**. Result: **REVIEW — ADULT / Educational context detected** (MEDIUM confidence).
-5. Narrate: "The engine applies word-boundary matching with Unicode normalization. Typing `pörnography` with a diacritic still triggers the ADULT rule. But 'breast cancer' hits the educational-exception list and is downgraded to REVIEW rather than BLOCK."
-6. Scroll down to **Custom Keywords**. Add a keyword, e.g. `vaping`. Tap **Save Policy**. Narrate: "The policy is persisted on the server and applied to the child's filter session immediately."
-
-**Key talking point:** The filter engine (`filterEngine.ts`) is real TypeScript logic — not a third-party API. It runs on the client for instant feedback and on the server for enforcement.
-
----
-
-## Scene 5 — SafeSignal End-to-End (90 seconds)
-
-**What to show:** Child submits a report; parent sees triage result; parent acknowledges.
-
-**Steps:**
-
-1. On the child device, tap **SafeSignal** from the child home screen.
-2. Select category **Suspicious Message**.
-3. In the description field, type: "Someone online is asking me to keep our chat secret from my parents."
-4. In the optional pasted-text field, type: "don't tell your parents about us, just keep this between us."
-5. Tap **Submit Report**. Success screen: "Your report is private and only shared with your guardian."
-6. Switch to the parent device. Navigate to **SafeSignal Reports**. The new report appears at the top — badge shows **HIGH RISK**.
-7. Tap the report. Triage panel shows:
-   - Classification: **GROOMING_INDICATORS**
-   - Triggered rules: `G003 — Secrecy request (keep hidden from parents)`
-   - Uncertainty: **LIKELY**
-   - Recommended action: "Alert parent or guardian immediately. Do not respond to the sender. Save the conversation as evidence."
-8. Parent taps **Acknowledge** and selects action "Spoke with child — monitoring situation."
-9. Report status updates to **Acknowledged**.
+1. Open the app on a fresh device (or log out to reach the unauthenticated home).
+2. Tap **Report an Incident** (or navigate to `PublicReportScreen`). No login prompt appears.
+3. Select category **Online Harassment** from the picker.
+4. Enter a description: "Someone online keeps sending me threatening messages and sharing my photos without permission."
+5. Toggle **Safe to Contact** off (the reporter is not comfortable being contacted).
+6. Tap **Submit Report**.
+7. A success modal appears showing:
+   - `Case Reference: A1B2C3D4` (8-character hex code)
+   - `Recovery Secret: <64-char hex string>`
+   - Warning: "Copy and save this code now — it will not be shown again."
+8. Tap **Copy Recovery Secret**. The secret is placed in the clipboard.
+9. Tap **Done**. The modal closes. The secret is gone from the UI.
 
 **Key talking points:**
-- The classifier (`safetyClassifier.ts`) matched rule **G003** — a strong rule ("keep this a secret") that triggers LIKELY certainty on a single match.
-- The triage layer (`safeSignalTriage.ts`) combined the classification with the risk-derivation logic to produce HIGH risk.
-- The Socket.IO `safesignal:new` event notified the parent in real time — no polling.
+- The `caseRef` + `recoverySecret` are the only way to check case status later. The secret is stored as a bcrypt hash — the server cannot reconstruct it.
+- No personal data is required to report. The platform is accessible to children who cannot or will not log in.
 
-**Honest label to state aloud:** "The classifier is a rule-based engine — 18 named patterns. It is not a machine learning model. Human review is always recommended, as stated in the source file header."
-
----
-
-## Scene 6 — Device Security & Heartbeat (45 seconds)
-
-**What to show:** VERIFIED status badge; demonstrate OFFLINE transition.
-
-**Steps:**
-
-1. On the parent device, navigate to **Device Security**.
-2. Show the child device entry: status **ACTIVE**, last heartbeat timestamp visible.
-3. On the child device, force-close the app (swipe away from recent apps).
-4. Wait approximately 5 minutes (or narrate: "In a live demo with full time, we would wait 5 minutes; in a sped-up demonstration the threshold can be lowered in `server/src/routes/heartbeat.js`").
-5. Refresh the parent Device Security screen. Status changes to **OFFLINE**.
-6. Narrate: "The heartbeat route records `lastSeen`. The parent dashboard computes OFFLINE when `now - lastSeen > 5 minutes`. This is all server-side logic with no proprietary device management APIs."
-
-**Honest label to state aloud:** "OS-level uninstall protection — such as Android Device Policy Controller — is not implemented. A determined child who uninstalls the app will trigger OFFLINE, but the app cannot prevent uninstallation."
+**Honest label to state aloud:** "All data is in-memory. A server restart clears cases. A production deployment would require a persistent database."
 
 ---
 
-## Scene 7 — Policy Management (45 seconds)
+## Scenario B — AI Assessment (caseworker views CRITICAL + GROOMING_INDICATORS) ~2 min
 
-**What to show:** Parent adds a blocked keyword; policy takes effect.
+**What to show:** An AI-classified report arrives. The caseworker sees the severity and can override it.
 
 **Steps:**
 
-1. On the parent device, navigate to **Content Restrictions**.
-2. Under **Custom Blocked Keywords**, tap **Add Keyword**. Enter `tiktok`. Tap **Save Policy**.
-3. The policy is sent to `PUT /policy/:childId`. Confirm with the server response displayed.
-4. Switch to the child device. In the **Request Access** screen, enter a URL containing "tiktok" in the title or query field. Tap **Check**.
-5. Result: **BLOCK — Policy keyword "tiktok" matched.**
-6. Narrate: "The parent's keyword update was immediately reflected in the child's filter session. The policy round-trips through the server — the child cannot bypass it by modifying local state."
+1. In the same session or a new one, open **PublicReportScreen** (no login).
+2. Select category **Grooming**. Enter description:
+   > "An adult online keeps telling me to keep our chats secret from my parents. He sends me gifts and says we have a special relationship."
+3. Tap **Submit**. Note the `caseRef`.
+4. On a second device (or the same device in a new tab), navigate to **Caseworker Login**.
+5. Enter username `caseworker` / password `Caseworker123!`. Tap **Login**.
+6. `CaseworkerDashboardScreen` loads. The grooming report appears at the top — priority badge shows **CRITICAL**.
+7. Tap the case to open `CaseDetailScreen`.
+8. Show the **AI Assessment** panel:
+   - Suggested Priority: **CRITICAL**
+   - Classification tags include: **GROOMING_INDICATORS**
+   - `requiresHumanReview: true`
+9. The caseworker taps **Override Priority** and selects **HIGH** (a judgment call — the AI said CRITICAL, the caseworker disagrees).
+10. `PUT /cases/:id/assess` is called. The case now shows `humanPriority: HIGH`. The audit trail records the override.
+
+**Key talking points:**
+- The AI classifier (`aiClassifier.js`) scores the text using named rules and probability weights from `safetyClassifier.ts`. It does not call an external API.
+- Human override is explicit and auditable. The original AI score is always preserved.
 
 ---
 
-## Scene 8 — Closing (30 seconds)
+## Scenario C — Evidence Integrity ~1.5 min
 
-**What to show:** Return to parent dashboard — real metrics from the session.
+**What to show:** A file is uploaded as evidence. Its SHA-256 hash is displayed. Verification returns VERIFIED.
 
 **Steps:**
 
-1. Navigate to the parent **Dashboard**.
-2. Point to the live counters updated during the demo:
-   - Safety reports: 1 (submitted in Scene 5)
-   - Acknowledged reports: 1
-   - Access requests reviewed: (any submitted during demo)
-   - Policy last updated: timestamp from Scene 7
-3. Narrate: "Every number on this dashboard comes from real API calls made during this demonstration. There is no pre-seeded mock data on screen right now."
-4. Close with the mission statement: "GuardianLink Lite gives parents real visibility and gives children a safe, transparent way to ask for help. Every feature is honestly labelled — we show what is working, what is in controlled demonstration, and what is not yet built. Child safety is too important for theatre."
+1. Logged in as caseworker, open `CaseDetailScreen` for any existing case.
+2. Navigate to the **Evidence** tab or tap **Upload Evidence**.
+3. Select a PDF file (any file from the device).
+4. Tap **Upload**.
+5. The response card shows:
+   - `filename: document.pdf`
+   - `SHA-256: a3f9e2...` (64-char hex hash)
+   - `uploadedAt: <timestamp>`
+6. Tap **Verify Integrity**.
+7. `GET /evidence/verify/:evidenceId` is called. The server recomputes the SHA-256 from the stored base64 data and compares it to the stored hash.
+8. Result banner: **VERIFIED** ✅
+
+**Key talking points:**
+- The hash is computed server-side from the raw file buffer on upload. It is stored alongside the base64 data.
+- Verification re-derives the hash at query time. If the stored data were altered by any means, the hashes would diverge and the result would show **TAMPERED**.
+- This gives evidence a basic chain-of-custody audit trail without requiring a blockchain or external service.
+
+---
+
+## Scenario D — Human Response + Referral ~2 min
+
+**What to show:** A caseworker works a case: adds a note, moves it through status transitions, then refers it to an external agency.
+
+**Steps:**
+
+1. Logged in as caseworker, open any case in `CaseworkerDashboardScreen`.
+2. Tap **Add Note**. Enter: "Spoke with school counsellor. Child confirmed the messages. Parent has been notified. Proceeding to referral."
+3. Tap **Save Note**. The note appears in the **Notes** section with timestamp.
+4. Tap **Update Status**. Select **Under Review**. Confirm. Status badge updates.
+5. Tap **Update Status** again. Select **Action Required**. Status updates.
+6. Tap **Refer**. A service picker appears (e.g. NCMEC, Police, NGO).
+7. Select a service and tap **Confirm Referral**.
+8. `POST /cases/:id/refer` is called. The response shows:
+   - `referralId: REF-XXXXXXXX`
+   - `service: NCMEC`
+   - `status: SENT`
+   - Label: **SIMULATED**
+9. Case status automatically moves to **Referred**. The referral card appears in `CaseDetailScreen`.
+
+**Key talking points:**
+- The referral is simulated — `referralService.js` returns a realistic response without calling a live agency API. This is clearly marked both in the UI (SIMULATED badge) and in the source code.
+- Every status change and note addition is appended to the immutable audit trail visible via `GET /cases/:id/audit`.
+
+---
+
+## Scenario E — Parent Confidentiality ~1.5 min
+
+**What to show:** A parent cannot access confidential cases. The CaseStatusScreen requires the recovery code.
+
+**Steps:**
+
+1. Log in as **parent** (`parent` / `Parent123!`).
+2. Navigate to the parent dashboard. Point out: there is no "View Cases" or "View Reports" link from the parent role.
+3. Attempt to navigate directly to `/cases` (or try a direct API call: `GET /cases` with the parent JWT).
+4. Server returns **403 Forbidden** — `requireRole('caseworker')` rejects the parent token.
+5. Now navigate to **Check Report Status** (`CaseStatusScreen`).
+6. Enter a `caseRef` from Scenario A. Leave the recovery secret blank and tap **Check**. Error: "Invalid case reference or recovery secret."
+7. Enter the correct recovery secret (from clipboard). Tap **Check**.
+8. The case status card appears: category, status, submission date, last updated.
+9. The parent can see their case is being handled — without being able to browse all cases.
+
+**Key talking points:**
+- Confidential reports are accessible only through the `caseRef` + `recoverySecret` pair. Even a logged-in parent cannot enumerate or read other people's cases.
+- The recovery secret is bcrypt-hashed on the server. The server never stores the plaintext secret. If the reporter loses the secret, there is no recovery path by design.
+
+---
+
+## Scenario F — Commercial Model ~1 min
+
+**What to show:** The commercial landing screen with 4 pricing tiers and the demo request form.
+
+**Steps:**
+
+1. From the unauthenticated home screen (or any screen), navigate to **GuardianLink Plans** (`CommercialLandingScreen`).
+2. The hero banner shows the GuardianLink shield logo and the note: "Public reporting is always free — no subscription required."
+3. Scroll through the 4 plan cards:
+   - **Free** — UGX 0 — anonymous reporting, case status, safety tips.
+   - **Family Premium** — UGX 10,000/mo — SafeSignal, content filtering, device heartbeat. (MOST POPULAR badge)
+   - **School Starter** — UGX 100,000/mo — up to 50 student profiles, caseworker access, school dashboard.
+   - **NGO / Institutional** — Custom — unlimited profiles, custom integrations, SLA.
+4. Tap **Request Demo** on the School Starter card. The demo request form pre-fills the message field.
+5. Fill in Name and Email. Tap **Send Request**.
+6. `POST /organizations/demo-request` is called. Success message: "Thank you! We will be in touch within 1–2 business days."
+
+**Key talking points:**
+- The free tier is not a trial — anonymous reporting and case status are permanently free. This is a deliberate social impact decision aligned with UNICEF child protection principles.
+- Pricing is expressed in Ugandan Shillings (UGX) as the initial target market is Uganda, addressing the NDP III digital safety mandate.
 
 ---
 
@@ -155,11 +164,13 @@
 
 | If this breaks | Do this instead |
 |---|---|
-| Server not reachable from device | Run demo entirely on one machine using an Android emulator and `localhost:3001`; update `SERVER_URL` to `http://10.0.2.2:3001` for the emulator |
-| Pairing code expired | Re-generate from the parent Manage Children screen; codes are instant |
-| Socket.IO not delivering real-time updates | Refresh the parent screen manually — data is always available via the REST fetch fallback |
-| Firebase Auth fails | Use the Express JWT login path (email prefix as username: `parent` / `child`) — all core features work without Firebase |
+| Server not reachable from device | Run entirely on one machine with an Android emulator and `API_BASE_URL = 'http://10.0.2.2:3001'` |
+| Caseworker login fails | Verify `JWT_SECRET` is set in `server/.env` and the server was restarted after setting it |
+| Recovery secret lost | Resubmit a fresh report for the demo — secrets cannot be recovered by design |
+| Socket.IO events not delivering | Refresh the screen manually — data is always available via REST fetch fallback |
+| Firebase Auth fails | Use the Express JWT login path — all core features work without Firebase |
+| Evidence upload fails | Check that the `multer` dependency is installed: `cd server && npm install` |
 
 ---
 
-*Prepared for Stage H — GuardianLink Lite hackathon demo.*
+*GuardianLink — Stage 9 demo script.*
