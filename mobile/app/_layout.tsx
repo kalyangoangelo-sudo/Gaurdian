@@ -65,6 +65,9 @@ export default function RootLayout() {
 
         {/* Commercial */}
         <Stack.Screen name="commercial" />
+
+        {/* Teacher institutional report */}
+        <Stack.Screen name="teacher-report" />
       </Stack>
     </AuthProvider>
   );

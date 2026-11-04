@@ -41,6 +41,8 @@ export default function RoleSelectionScreen() {
           // Already authenticated — redirect to the matching tab group
           if (role === 'parent') {
             router.replace('/(parent)/dashboard');
+          } else if (role === 'teacher') {
+            router.replace('/teacher-report' as any);
           } else {
             router.replace('/(child)/home');
           }

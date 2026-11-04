@@ -7,7 +7,7 @@
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 
-export type UserRole = 'parent' | 'child';
+export type UserRole = 'parent' | 'child' | 'teacher' | 'caseworker';
 
 export interface User {
   id: string;

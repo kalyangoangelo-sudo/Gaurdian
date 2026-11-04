@@ -36,6 +36,11 @@ const DEMO_ACCOUNTS: Record<string, { password: string; user: User; token: strin
     token: 'demo-child-token',
     user: { id: 'demo-child-001', username: 'Child', email: 'kalyango.200@gmail.com', role: 'child', fcmToken: null },
   },
+  'teacher@guardian.app': {
+    password: 'Teacher123!',
+    token: 'demo-teacher-token',
+    user: { id: 'demo-teacher-001', username: 'teacher', email: 'teacher@guardian.app', role: 'teacher', fcmToken: null },
+  },
 };
 
 // ─── Context shape ─────────────────────────────────────────────────────────────
@@ -115,6 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await persistSession(demo.token, demo.user);
         if (demo.user.role === 'parent') {
           router.replace('/(parent)/dashboard');
+        } else if (demo.user.role === 'teacher') {
+          router.replace('/teacher-report' as any);
         } else {
           router.replace('/(child)/home');
         }
@@ -129,6 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerForPushNotifications(result.user.id).catch(() => {});
       if (result.user.role === 'parent') {
         router.replace('/(parent)/dashboard');
+      } else if (result.user.role === 'teacher') {
+        router.replace('/teacher-report' as any);
       } else {
         router.replace('/(child)/home');
       }
