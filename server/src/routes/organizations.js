@@ -16,7 +16,7 @@ const express = require('express');
 const crypto = require('crypto');
 
 const VALID_TYPES = ['school', 'ngo', 'government', 'private', 'other'];
-const VALID_PLANS = ['free', 'basic', 'professional', 'enterprise'];
+const VALID_PLANS = ['free', 'basic', 'professional', 'enterprise', 'family', 'school-starter', 'institutional'];
 
 function createOrganizationsRouter(ORGS, DEMO_REQUESTS) {
   const router = express.Router();
@@ -62,7 +62,7 @@ function createOrganizationsRouter(ORGS, DEMO_REQUESTS) {
 
   // ── POST /organizations/demo-request  (MUST be before /:id/demo-request) ──
   router.post('/demo-request', (req, res) => {
-    const { contactName, email, orgName, message } = req.body;
+    const { contactName, contactEmail, orgName, message } = req.body;
 
     const id = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
     const now = new Date().toISOString();
@@ -71,7 +71,7 @@ function createOrganizationsRouter(ORGS, DEMO_REQUESTS) {
       id,
       orgId: null,
       contactName: contactName || null,
-      email: email || null,
+      contactEmail: contactEmail || null,
       orgName: orgName || null,
       message: message || null,
       createdAt: now,
@@ -101,7 +101,7 @@ function createOrganizationsRouter(ORGS, DEMO_REQUESTS) {
     const org = ORGS.get(req.params.id);
     if (!org) return res.status(404).json({ error: 'Organization not found.' });
 
-    const { contactName, email, message } = req.body;
+    const { contactName, contactEmail, message } = req.body;
 
     const id = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
     const now = new Date().toISOString();
@@ -110,7 +110,7 @@ function createOrganizationsRouter(ORGS, DEMO_REQUESTS) {
       id,
       orgId: req.params.id,
       contactName: contactName || null,
-      email: email || null,
+      contactEmail: contactEmail || null,
       message: message || null,
       createdAt: now,
     });
